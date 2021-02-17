@@ -1,0 +1,35 @@
+package bee.lang.lexer;
+
+public enum TokenType {
+
+    EOF,
+    IDENTIFIER,
+    IF, ELSE, WHILE, DO, FOR,
+    BREAK, CONTINUE,
+    L_PAREN, R_PAREN,
+    L_SQ_PAREN, R_SQ_PAREN,
+    L_BRACE, R_BRACE,
+    SEMICOLON,
+    DOT,
+    ASSIGN,
+    LT, LE, GE, GT, EQ, NOT_EQ, NOT, AND, OR,
+    PLUS, MINUS, TIMES, DIV, MOD,
+    TRUE, FALSE,
+    NIL,
+    NEW,
+    PUBLIC, PROTECTED, PRIVATE, STATIC,
+    RETURN,
+    INT_LITERAL, FLOAT_LITERAL, CHAR_LITERAL, STRING_LITERAL,
+    INT_TYPE, FLOAT_TYPE, CHAR_TYPE, BOOL_TYPE,
+    QUESTION_MARK,
+    COMMA,
+    COLON,
+    CLASS,
+    REQUIRE,
+    CONST,
+    VAR,
+    SUPER,
+    THIS,
+    CONSTRUCTOR
+
+}
