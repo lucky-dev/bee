@@ -1,19 +1,26 @@
 package bee.lang.ast;
 
 import bee.lang.ast.types.BaseType;
+import bee.lang.lexer.Token;
 import bee.lang.visitors.BaseVisitor;
 import bee.lang.visitors.TypeVisitor;
 
 public class FieldDefinition extends Statement {
 
+    private Token mToken;
     private AccessModifier mAccessModifier;
     private boolean isStatic;
     private VariableDefinition mVariableDefinition;
 
-    public FieldDefinition(AccessModifier accessModifier, boolean isStatic, VariableDefinition variableDefinition) {
+    public FieldDefinition(Token token, AccessModifier accessModifier, boolean isStatic, VariableDefinition variableDefinition) {
+        mToken = token;
         mAccessModifier = accessModifier;
         this.isStatic = isStatic;
         mVariableDefinition = variableDefinition;
+    }
+
+    public Token getToken() {
+        return mToken;
     }
 
     public AccessModifier getAccessModifier() {

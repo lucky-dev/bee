@@ -84,7 +84,7 @@ public class Lexer {
                     }
 
                     if (isInsideOfComment) {
-                        System.out.println("Lexer does not see the end of the multiline comment");
+                        System.out.println("Lexer does not see the end of the multiline comment.");
 
                         return mEofToken;
                     }
@@ -123,7 +123,7 @@ public class Lexer {
                         mReservedTokens.put(sLexeme, token);
                         return token;
                     } else {
-                        System.out.println("Too long identifier (max size " + MAX_LENGTH_ID + " symbols) in the line " + mNumberOfLine);
+                        System.out.println("Too long identifier (max size " + MAX_LENGTH_ID + " symbols) in the line " + mNumberOfLine + ".");
 
                         moveToEndOfLine();
                     }
@@ -155,9 +155,9 @@ public class Lexer {
                         return createToken(TokenType.FLOAT_LITERAL, lexeme.toString());
                     } else {
                         if (isEnd()) {
-                            System.out.println("An unexpected the end of the file");
+                            System.out.println("An unexpected the end of the file.");
                         } else {
-                            System.out.println("An unexpected character '" + mCurrentChar + "' in the line " + mNumberOfLines);
+                            System.out.println("An unexpected character '" + mCurrentChar + "' in the line " + mNumberOfLines + ".");
 
                             moveToEndOfLine();
                         }
@@ -258,11 +258,11 @@ public class Lexer {
                 }
 
                 if (isInsideOfString) {
-                    System.out.println("Lexer does not see \" at the end of the string in the line " + mNumberOfLine);
+                    System.out.println("Lexer does not see \" at the end of the string in the line " + mNumberOfLine + ".");
 
                     moveToEndOfLine();
                 } else if (str.length() > MAX_LENGTH_STR_LITERAL) {
-                    System.out.println("Too long string literal (max size " + MAX_LENGTH_STR_LITERAL + " symbols) in the line " + mNumberOfLine);
+                    System.out.println("Too long string literal (max size " + MAX_LENGTH_STR_LITERAL + " symbols) in the line " + mNumberOfLine + ".");
 
                     moveToEndOfLine();
                 } else {
@@ -288,7 +288,8 @@ public class Lexer {
                             (newChar.equals("\\n")) ||
                             (newChar.equals("\\r")) ||
                             (newChar.equals("\\t")) ||
-                            (newChar.equals("\\b"))) {
+                            (newChar.equals("\\b")) ||
+                            (newChar.equals("\\0"))) {
                         moveToNextChar();
 
                         if (isCurrentChar('\'')) {
@@ -306,14 +307,14 @@ public class Lexer {
                 }
 
                 if (isEnd()) {
-                    System.out.println("An unexpected the end of the file");
+                    System.out.println("An unexpected the end of the file.");
                 } else {
-                    System.out.println("An unexpected character '" + mCurrentChar + "' in the line " + mNumberOfLine);
+                    System.out.println("An unexpected character '" + mCurrentChar + "' in the line " + mNumberOfLine + ".");
 
                     moveToEndOfLine();
                 }
             } else {
-                System.out.println("An unexpected character '" + mCurrentChar + "' in the line " + mNumberOfLine);
+                System.out.println("An unexpected character '" + mCurrentChar + "' in the line " + mNumberOfLine + ".");
 
                 moveToEndOfLine();
             }

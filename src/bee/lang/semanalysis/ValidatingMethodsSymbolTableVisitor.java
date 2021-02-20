@@ -31,10 +31,13 @@ public class ValidatingMethodsSymbolTableVisitor implements BaseVisitor {
 
     @Override
     public void visit(Assignment expression) {
+        expression.getLeftExpression().visit(this);
+        expression.getRightExpression().visit(this);
     }
 
     @Override
     public void visit(AssignmentStatement statement) {
+        statement.getExpression().visit(this);
     }
 
     @Override
@@ -58,10 +61,6 @@ public class ValidatingMethodsSymbolTableVisitor implements BaseVisitor {
     }
 
     @Override
-    public void visit(ChainingCall expression) {
-    }
-
-    @Override
     public void visit(CharLiteral expression) {
     }
 
@@ -80,6 +79,7 @@ public class ValidatingMethodsSymbolTableVisitor implements BaseVisitor {
 
     @Override
     public void visit(ConstructorDefinition statement) {
+        // Create a new method type
         MethodType constructorType = new MethodType();
 
         Iterator<Statement> iterator = statement.getFormalArgumentsList().getStatementsList().iterator();
@@ -91,12 +91,14 @@ public class ValidatingMethodsSymbolTableVisitor implements BaseVisitor {
 
         constructorType.addReturnType(Type.Class(((ClassSymbol) mCurrentScope).getIdentifier()));
 
+        // Find constructor (method) in the current class
         Symbol symbol = mCurrentScope.getSymbolInCurrentScope("constructor");
 
         Symbol currentConstructor = null;
 
         Symbol constructor = symbol;
 
+        // The symbol table was created at the previous stage. Find a constructor which corresponds to the visited constructor.
         while (constructor != null) {
             if ((statement.getAccessModifier() == ((MethodSymbol) constructor).getAccessModifier()) &&
                     (constructorType.isEqual(constructor.getType()))) {
@@ -109,6 +111,7 @@ public class ValidatingMethodsSymbolTableVisitor implements BaseVisitor {
 
         constructor = symbol;
 
+        // Try to find a constructor with the same signature in the current class. Ignore the current constructor.
         while (constructor != null) {
             if (constructor != currentConstructor) {
                 if (currentConstructor.getType().isEqual(constructor.getType())) {
@@ -171,6 +174,7 @@ public class ValidatingMethodsSymbolTableVisitor implements BaseVisitor {
 
     @Override
     public void visit(MethodDefinition statement) {
+        // Create a new method type.
         MethodType methodType = new MethodType();
 
         Iterator<Statement> iterator = statement.getFormalArgumentsList().getStatementsList().iterator();
@@ -185,61 +189,63 @@ public class ValidatingMethodsSymbolTableVisitor implements BaseVisitor {
 
         MethodSymbol currentMethod = null;
 
-        Symbol method = symbol;
-
-        while (method != null) {
-            if ((statement.getAccessModifier() == ((MethodSymbol) method).getAccessModifier()) &&
-                    ((statement.isStatic() == ((MethodSymbol) method).isStatic())) &&
-                    (methodType.isEqual(method.getType()))) {
-                currentMethod = (MethodSymbol) method;
+        // Try to find a method which corresponds to the visited method.
+        while (symbol != null) {
+            if ((statement.getAccessModifier() == ((MethodSymbol) symbol).getAccessModifier()) &&
+                    ((statement.isStatic() == ((MethodSymbol) symbol).isStatic())) &&
+                    (methodType.isEqual(symbol.getType()))) {
+                currentMethod = (MethodSymbol) symbol;
                 break;
             }
 
-            method = method.getNextSymbol();
+            symbol = symbol.getNextSymbol();
         }
 
         BaseScope scope = mCurrentScope;
 
+        // Scan all classes (scopes) in hierarchy.
         while (scope != null) {
             symbol = scope.getSymbolInCurrentScope(statement.getIdentifier().getName());
 
-            if ((symbol != null) && (symbol.getSymbolType() == SymbolType.METHOD)) {
+            // Ignore fields with the same name.
+            if ((symbol != null) && (symbol instanceof MethodSymbol)) {
                 MethodSymbol foundMethodSymbol = null;
 
                 Symbol currentSymbol = symbol;
 
+                // Try to find a method in a class. Check only formal arguments. Ignore return type.
                 while (currentSymbol != null) {
-                    if (currentMethod != symbol) {
-                        if (((MethodType) currentMethod.getType()).isEqualFormalArguments((MethodType) currentSymbol.getType())) {
-                            foundMethodSymbol = (MethodSymbol) currentSymbol;
-                            break;
-                        }
+                    // Skip the current method
+                    if ((currentMethod != symbol) &&
+                            (((MethodSymbol) symbol).isStatic() == statement.isStatic()) &&
+                            (((MethodType) currentMethod.getType()).isEqualFormalArguments((MethodType) currentSymbol.getType()))) {
+                        foundMethodSymbol = (MethodSymbol) currentSymbol;
+                        break;
                     }
 
                     currentSymbol = currentSymbol.getNextSymbol();
                 }
 
                 if (foundMethodSymbol != null) {
+                    // Block a method with the same name, the same static modifier and the same formal arguments in the current class.
                     if (scope == mCurrentScope) {
-                        printErrorMessage(statement.getIdentifier().getToken(), "'" + mCurrentScope.getScopeName() + "' has the method '" + statement.getIdentifier().getName() + "' with the same signature");
+                        printErrorMessage(statement.getIdentifier().getToken(), "'" + mCurrentScope.getScopeName() + "' has the method '" + statement.getIdentifier().getName() + "' with the same signature.");
                         break;
                     } else {
-                        if (((currentMethod.isStatic()) && (foundMethodSymbol.isStatic())) && ((foundMethodSymbol.isPublic()) || (foundMethodSymbol.isProtected()))) {
-                            printErrorMessage(statement.getIdentifier().getToken(), "'" + scope + "' has already had the name '" + statement.getIdentifier().getName() + "'");
-                            break;
-                        }
-
-                        if ((!currentMethod.isStatic()) && (!foundMethodSymbol.isStatic())) {
-                            if (((MethodType) currentMethod.getType()).getReturnType().isEqual(((MethodType) foundMethodSymbol.getType()).getReturnType())) {
-                                if (currentMethod.getAccessModifier().isWeakerThan(foundMethodSymbol.getAccessModifier())) {
-                                    printErrorMessage(statement.getIdentifier().getToken(), "'" + scope + "' has already had the name '" + statement.getIdentifier().getName() + "' with wider access modifier");
-                                    break;
-                                }
-                            } else {
-                                if ((foundMethodSymbol.isPublic()) || (foundMethodSymbol.isProtected())) {
-                                    printErrorMessage(statement.getIdentifier().getToken(), "'" + scope + "' has already had the name '" + statement.getIdentifier().getName() + "'");
-                                    break;
-                                }
+                        if (((MethodType) currentMethod.getType()).getReturnType().isEqual(((MethodType) foundMethodSymbol.getType()).getReturnType())) {
+                            // Methods have the same formal parameters and return types. These methods are overridden (or hides static methods).
+                            // If the method in the subclass has weaker access modifier than the method in the base class. It is an error.
+                            // E.g. Animal :> Cat. Animal#doIt (Animal::doIt) is public and Cat#doIt (Cat::doIt) is private or protected - error!
+                            if (currentMethod.getAccessModifier().isWeakerThan(foundMethodSymbol.getAccessModifier())) {
+                                printErrorMessage(statement.getIdentifier().getToken(), "'" + scope + "' has already had the name '" + statement.getIdentifier().getName() + "' with wider access modifier.");
+                                break;
+                            }
+                        } else {
+                            // Methods have the same formal parameters and different return types.
+                            // This is a conflict. The method in the base class must be private to cancel inheritance.
+                            if ((foundMethodSymbol.isPublic()) || (foundMethodSymbol.isProtected())) {
+                                printErrorMessage(statement.getIdentifier().getToken(), "'" + scope + "' has already had the name '" + statement.getIdentifier().getName() + "'.");
+                                break;
                             }
                         }
                     }

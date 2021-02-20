@@ -13,8 +13,7 @@ public class Main {
     public static void main(String[] args) {
 
         Parser parser = new Parser(new Lexer());
-//        Program program = parser.parse("class A { } class B { } class C : A { } class D { } class E : C { } class F : B { }");
-        Program program = parser.parse("class A { public constructor() : super() { } protected f() { } } class B : A { public constructor() : super() { } private f() { } }");
+        Program program = parser.parse("");
         NewSymbolTableVisitor symbolTableVisitor = new NewSymbolTableVisitor();
         symbolTableVisitor.visit(program);
         BaseScope scope = symbolTableVisitor.getCurrentScope();

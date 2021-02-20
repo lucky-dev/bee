@@ -5,15 +5,19 @@ import java.util.LinkedList;
 
 public class MethodType extends BaseType {
 
-    private LinkedList<BaseType> mTypes;
+    private LinkedList<BaseType> mFormalArgumentTypes;
     private BaseType mReturnType;
 
     public MethodType() {
-        mTypes = new LinkedList<>();
+        mFormalArgumentTypes = new LinkedList<>();
     }
 
     public void addFormalArgumentType(BaseType type) {
-        mTypes.add(type);
+        mFormalArgumentTypes.add(type);
+    }
+
+    public LinkedList<BaseType> getFormalArgumentTypes() {
+        return mFormalArgumentTypes;
     }
 
     public void addReturnType(BaseType returnType) {
@@ -25,12 +29,12 @@ public class MethodType extends BaseType {
     }
 
     public boolean isEqualFormalArguments(MethodType otherType) {
-        if (mTypes.size() != otherType.mTypes.size()) {
+        if (mFormalArgumentTypes.size() != otherType.mFormalArgumentTypes.size()) {
             return false;
         }
 
-        Iterator<BaseType> iteratorThisType = mTypes.iterator();
-        Iterator<BaseType> iteratorOtherType = otherType.mTypes.iterator();
+        Iterator<BaseType> iteratorThisType = mFormalArgumentTypes.iterator();
+        Iterator<BaseType> iteratorOtherType = otherType.mFormalArgumentTypes.iterator();
 
         while ((iteratorThisType.hasNext()) && (iteratorOtherType.hasNext())) {
             if (!iteratorThisType.next().isEqual(iteratorOtherType.next())) {
@@ -57,12 +61,12 @@ public class MethodType extends BaseType {
 
         MethodType otherType = (MethodType) type;
 
-        if (mTypes.size() != otherType.mTypes.size()) {
+        if (mFormalArgumentTypes.size() != otherType.mFormalArgumentTypes.size()) {
             return false;
         }
 
-        Iterator<BaseType> iteratorThisType = mTypes.iterator();
-        Iterator<BaseType> iteratorOtherType = otherType.mTypes.iterator();
+        Iterator<BaseType> iteratorThisType = mFormalArgumentTypes.iterator();
+        Iterator<BaseType> iteratorOtherType = otherType.mFormalArgumentTypes.iterator();
 
         while ((iteratorThisType.hasNext()) && (iteratorOtherType.hasNext())) {
             if (!iteratorThisType.next().isEqual(iteratorOtherType.next())) {
@@ -80,7 +84,7 @@ public class MethodType extends BaseType {
     public String toString() {
         StringBuilder sb = new StringBuilder();
 
-        Iterator<BaseType> iteratorTypes = mTypes.iterator();
+        Iterator<BaseType> iteratorTypes = mFormalArgumentTypes.iterator();
 
         if (iteratorTypes.hasNext()) {
             sb.append(iteratorTypes.next());

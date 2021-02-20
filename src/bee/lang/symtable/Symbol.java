@@ -12,6 +12,5 @@ public interface Symbol {
     void setScope(BaseScope scope);
     Symbol getNextSymbol();
     void setNextSymbol(Symbol nextSymbol);
-    SymbolType getSymbolType();
 
 }

@@ -26,10 +26,11 @@ public class Type {
     }
 
     public static ClassType defineClassType(Identifier identifier) {
-        ClassType classType = new ClassType(identifier);
-        sClassTypes.put(identifier.getName(), classType);
+        if (!sClassTypes.containsKey(identifier.getName())) {
+            sClassTypes.put(identifier.getName(), new ClassType(identifier));
+        }
 
-        return classType;
+        return sClassTypes.get(identifier.getName());
     }
 
     public static Set<String> getDefinedClassesNames() {

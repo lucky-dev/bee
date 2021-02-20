@@ -3,22 +3,23 @@ package bee.lang.semanalysis;
 import bee.lang.ast.*;
 import bee.lang.ast.types.*;
 import bee.lang.lexer.Token;
-import bee.lang.symtable.BaseScope;
-import bee.lang.symtable.ClassSymbol;
-import bee.lang.symtable.MethodSymbol;
-import bee.lang.symtable.Symbol;
+import bee.lang.symtable.*;
 import bee.lang.visitors.TypeVisitor;
 
 import java.util.Iterator;
+import java.util.LinkedList;
 
 public class TypeCheckingVisitor implements TypeVisitor {
 
     private BaseScope mBaseScope;
     private BaseScope mCurrentScope;
+    private ClassSymbol mCurrentClassSymbol;
+    private BaseScope mGlobalScope;
 
     public TypeCheckingVisitor(BaseScope baseScope) {
         mBaseScope = baseScope;
         mCurrentScope = baseScope;
+        mGlobalScope = baseScope;
     }
 
     @Override
@@ -59,11 +60,11 @@ public class TypeCheckingVisitor implements TypeVisitor {
         }
 
         if (!expressionType.isArray()) {
-            printErrorMessage(expression.getToken(), "Operator '[]' can be applied to array");
+            printErrorMessage(expression.getToken(), "Operator '[]' can be applied to array.");
         }
 
         if (!indexType.isInt()) {
-            printErrorMessage(expression.getToken(), "Operator '[]' can be used with an index of type int");
+            printErrorMessage(expression.getToken(), "Operator '[]' can be used with an index of type int.");
         }
 
         return Type.Error;
@@ -92,7 +93,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
             }
         }
 
-        printErrorMessage(expression.getToken(), "Can not assign value of type '" + typeLeftExpression + "' to variable of type '" + typeRightExpression + "'");
+        printErrorMessage(expression.getToken(), "Can not assign value of type '" + typeRightExpression + "' to variable of type '" + typeLeftExpression + "'.");
 
         return Type.Error;
     }
@@ -128,17 +129,95 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(Call expression) {
-        BaseType identifierType = expression.getIdentifier().visit(this);
+        BaseType expressionType = expression.getExpression().visit(this);
 
-        if (identifierType.isMethod()) {
+        if ((!expressionType.isClass()) && (!expressionType.isClassClass())) {
+            printErrorMessage(expression.getIdentifier().getToken(), "Can not find a method '" + expression.getIdentifier().getName() + "'.");
+            return Type.Error;
         }
 
-        return Type.Error;
-    }
+        boolean isStaticExpectedMethod = expressionType.isClassClass();
 
-    @Override
-    public BaseType visit(ChainingCall expression) {
-        return null;
+        ClassSymbol classSymbol = (ClassSymbol) mGlobalScope.getSymbolInCurrentScope((isStaticExpectedMethod ? ((ClassClassType) expressionType).getClassType() : (ClassType) expressionType).getIdentifier().getName());
+
+        MethodType expectedMethodType = new MethodType();
+
+        Iterator<Expression> iterator = expression.getArgumentsList().getExpressionList().iterator();
+
+        while (iterator.hasNext()) {
+            expectedMethodType.addFormalArgumentType(iterator.next().visit(this));
+        }
+
+        MethodSymbol foundMethodSymbol = null;
+
+        BaseScope scope = classSymbol;
+
+        while (scope != null) {
+            Symbol symbol = scope.getSymbolInCurrentScope(expression.getIdentifier().getName());
+
+            if ((symbol != null) && (symbol instanceof MethodSymbol)) {
+                while (symbol != null) {
+                    MethodType foundMethodType = (MethodType) symbol.getType();
+
+                    // Expected method and found method must be or must not be static
+                    if ((isStaticExpectedMethod == ((MethodSymbol) symbol).isStatic()) &&
+                            (expectedMethodType.getFormalArgumentTypes().size() == foundMethodType.getFormalArgumentTypes().size())) {
+                        Iterator<BaseType> expectedTypesIterator = expectedMethodType.getFormalArgumentTypes().iterator();
+                        Iterator<BaseType> foundTypesIterator = foundMethodType.getFormalArgumentTypes().iterator();
+
+                        boolean isSuitableMethod = true;
+
+                        // Check every actual and formal parameter. Find an appropriate method.
+                        while ((expectedTypesIterator.hasNext()) && (foundTypesIterator.hasNext())) {
+                            BaseType expectedType = expectedTypesIterator.next();
+                            BaseType foundType = foundTypesIterator.next();
+
+                            if (expectedType.isNil()) {
+                                if ((!foundType.isArray()) && (!foundType.isClass())) {
+                                    isSuitableMethod = false;
+                                    break;
+                                }
+                            } else {
+                                if (((expectedType.isInt()) || (expectedType.isChar()) || (expectedType.isBool()) || (expectedType.isArray())) && (!foundType.isEqual(expectedType))) {
+                                    isSuitableMethod = false;
+                                    break;
+                                }
+
+                                if ((expectedType.isClass()) && (!((ClassType) expectedType).isSubclassOf((ClassType) foundType))) {
+                                    isSuitableMethod = false;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // If a method exists in base class and has access modifier `public` or `protected`. It can be used in subclasses. Or if the method exists in the current class then everything is OK.
+                        if ((isSuitableMethod) && ((scope == mCurrentScope) || ((((MethodSymbol) symbol).isPublic()) || (((MethodSymbol) symbol).isProtected())))) {
+                            // Found method may be inherited method or overridden. If method is inherited then need to check formal arguments to prevent clashing of methods.
+                            // If method is overridden then everything is OK. Keep searching of other methods.
+                            if (foundMethodSymbol == null) {
+                                foundMethodSymbol = (MethodSymbol) symbol;
+                            } else {
+                                // Another method with the same formal parameters are found. It is an error.
+                                if (!expectedMethodType.isEqualFormalArguments((MethodType) foundMethodSymbol.getType())) {
+                                    printErrorMessage(expression.getIdentifier().getToken(), "Clash of methods.");
+                                    return Type.Error;
+                                }
+                            }
+                        }
+                    }
+
+                    symbol = symbol.getNextSymbol();
+                }
+            }
+
+            scope = scope.getEnclosingScope();
+        }
+
+        if (foundMethodSymbol == null) {
+            printErrorMessage(expression.getIdentifier().getToken(), "Can not find a method '" + expression.getIdentifier().getName() + "' for such arguments.");
+        }
+
+        return foundMethodSymbol != null ? ((MethodType) foundMethodSymbol.getType()).getReturnType() : Type.Error;
     }
 
     @Override
@@ -148,15 +227,17 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(ClassDefinition statement) {
-        ClassSymbol classSymbol = (ClassSymbol) mBaseScope.getSymbolInCurrentScope(statement.getClassIdentifier().getName());
+        mCurrentClassSymbol = (ClassSymbol) mBaseScope.getSymbolInCurrentScope(statement.getClassIdentifier().getName());
 
-        mCurrentScope = classSymbol;
+        mCurrentScope = mCurrentClassSymbol;
 
         statement.getConstructorDefinitions().visit(this);
         statement.getMethodDefinitions().visit(this);
         statement.getFieldDefinitions().visit(this);
 
-        mCurrentScope = classSymbol.getScope();
+        mCurrentScope = mCurrentClassSymbol.getScope();
+
+        mCurrentClassSymbol = null;
 
         return Type.Nothing;
     }
@@ -240,22 +321,83 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(FieldAccess expression) {
-        return null;
+        BaseType expressionType = expression.getExpression().visit(this);
+
+        if (expressionType.isClass()) {
+            BaseScope scope = (ClassSymbol) mGlobalScope.getSymbolInCurrentScope(((ClassType) expressionType).getIdentifier().getName());
+
+            while (scope != null) {
+                Symbol symbol = scope.getSymbolInCurrentScope(expression.getIdentifier().getName());
+
+                if (symbol instanceof FieldSymbol) {
+                    return symbol.getType();
+                }
+
+                scope = scope.getEnclosingScope();
+            }
+        }
+
+        return Type.Error;
     }
 
     @Override
     public BaseType visit(FieldDefinition statement) {
-        return Type.Nothing;
+        VariableDefinition variableDefinitionStatement = statement.getVariableDefinition();
+
+        if (variableDefinitionStatement.getInitExpression() != null) {
+            BaseType typeVariable = variableDefinitionStatement.getType();
+            BaseType typeInitExpression = variableDefinitionStatement.getInitExpression().visit(this);
+
+            if (((typeVariable.isInt()) || (typeVariable.isChar()) || (typeVariable.isBool()) || (typeVariable.isArray())) &&
+                    (typeVariable.isEqual(typeInitExpression))) {
+                return Type.Nothing;
+            }
+
+            if (((typeVariable.isClass()) || (typeVariable.isArray())) && (typeInitExpression.isNil())) {
+                return Type.Nothing;
+            }
+
+            if ((typeVariable.isClass()) && (typeInitExpression.isClass())) {
+                ClassType classTypeVariable = (ClassType) typeVariable;
+                ClassType classTypeInitExpression = (ClassType) typeInitExpression;
+
+                if (classTypeInitExpression.isSubclassOf(classTypeVariable)) {
+                    return Type.Nothing;
+                }
+            }
+
+            printErrorMessage(statement.getToken(), "Can not assign value of type '" + typeInitExpression + "' to variable of type '" + typeVariable + "'.");
+        }
+
+        return Type.Error;
     }
 
     @Override
     public BaseType visit(GreaterEqualThan expression) {
-        return null;
+        BaseType typeLeftExpression = expression.getLeftExpression().visit(this);
+        BaseType typeRightExpression = expression.getRightExpression().visit(this);
+
+        if ((typeLeftExpression.isEqual(typeRightExpression)) && ((typeLeftExpression.isInt() || (typeLeftExpression.isChar())))) {
+            return Type.Bool;
+        }
+
+        printErrorMessage(expression.getToken(), "Operator '>=' only accepts operands of type int or char. Both operands must have the same type.");
+
+        return Type.Error;
     }
 
     @Override
     public BaseType visit(GreaterThan expression) {
-        return null;
+        BaseType typeLeftExpression = expression.getLeftExpression().visit(this);
+        BaseType typeRightExpression = expression.getRightExpression().visit(this);
+
+        if ((typeLeftExpression.isEqual(typeRightExpression)) && ((typeLeftExpression.isInt() || (typeLeftExpression.isChar())))) {
+            return Type.Bool;
+        }
+
+        printErrorMessage(expression.getToken(), "Operator '>' only accepts operands of type int or char. Both operands must have the same type.");
+
+        return Type.Error;
     }
 
     @Override
@@ -277,26 +419,44 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(LessEqualThan expression) {
-        return null;
+        BaseType typeLeftExpression = expression.getLeftExpression().visit(this);
+        BaseType typeRightExpression = expression.getRightExpression().visit(this);
+
+        if ((typeLeftExpression.isEqual(typeRightExpression)) && ((typeLeftExpression.isInt() || (typeLeftExpression.isChar())))) {
+            return Type.Bool;
+        }
+
+        printErrorMessage(expression.getToken(), "Operator '<=' only accepts operands of type int or char. Both operands must have the same type.");
+
+        return Type.Error;
     }
 
     @Override
     public BaseType visit(LessThan expression) {
-        return null;
+        BaseType typeLeftExpression = expression.getLeftExpression().visit(this);
+        BaseType typeRightExpression = expression.getRightExpression().visit(this);
+
+        if ((typeLeftExpression.isEqual(typeRightExpression)) && ((typeLeftExpression.isInt() || (typeLeftExpression.isChar())))) {
+            return Type.Bool;
+        }
+
+        printErrorMessage(expression.getToken(), "Operator '<' only accepts operands of type int or char. Both operands must have the same type.");
+
+        return Type.Error;
     }
 
     @Override
     public BaseType visit(MethodDefinition statement) {
-        MethodType constructorType = new MethodType();
+        MethodType methodType = new MethodType();
 
         Iterator<Statement> iterator = statement.getFormalArgumentsList().getStatementsList().iterator();
 
         while (iterator.hasNext()) {
             VariableDefinition variableDefinition = (VariableDefinition) iterator.next();
-            constructorType.addFormalArgumentType(variableDefinition.getType());
+            methodType.addFormalArgumentType(variableDefinition.getType());
         }
 
-        constructorType.addReturnType(Type.Class(((ClassSymbol) mCurrentScope).getIdentifier()));
+        methodType.addReturnType(statement.getReturnType());
 
         Symbol symbol = mCurrentScope.getSymbolInCurrentScope(statement.getIdentifier().getName());
 
@@ -307,7 +467,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
         while (method != null) {
             if ((statement.getAccessModifier() == ((MethodSymbol) method).getAccessModifier()) &&
                     (statement.isStatic() == ((MethodSymbol) method).isStatic()) &&
-                    (constructorType.isEqual(method.getType()))) {
+                    (methodType.isEqual(method.getType()))) {
                 currentMethod = (MethodSymbol) method;
                 break;
             }
@@ -326,17 +486,26 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(Mod expression) {
-        return null;
+        BaseType typeLeftExpression = expression.getLeftExpression().visit(this);
+        BaseType typeRightExpression = expression.getRightExpression().visit(this);
+
+        if (typeLeftExpression.isEqual(typeRightExpression) && (typeLeftExpression.isInt())) {
+            return Type.Int;
+        }
+
+        printErrorMessage(expression.getToken(), "Operator '%' only accepts operands of type int. Both operands must have the same type.");
+
+        return Type.Error;
     }
 
     @Override
     public BaseType visit(NewArray expression) {
-        return null;
+        return expression.getType();
     }
 
     @Override
     public BaseType visit(NewObject expression) {
-        return null;
+        return expression.getType();
     }
 
     @Override
@@ -359,16 +528,40 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(NotEqual expression) {
-        return null;
+        BaseType typeLeftExpression = expression.getLeftExpression().visit(this);
+        BaseType typeRightExpression = expression.getRightExpression().visit(this);
+
+        if ((typeLeftExpression.isEqual(typeRightExpression)) && ((typeLeftExpression.isInt() || (typeLeftExpression.isChar())))) {
+            return Type.Bool;
+        }
+
+        printErrorMessage(expression.getToken(), "Operator '!=' only accepts operands of type int or char. Both operands must have the same type.");
+
+        return Type.Error;
     }
 
     @Override
     public BaseType visit(Or expression) {
-        return null;
+        BaseType typeLeftExpression = expression.getLeftExpression().visit(this);
+        BaseType typeRightExpression = expression.getRightExpression().visit(this);
+
+        if ((typeLeftExpression.isEqual(typeRightExpression)) && (typeLeftExpression.isBool())) {
+            return Type.Bool;
+        }
+
+        printErrorMessage(expression.getToken(), "Operator '||' only accepts operands of type bool. Both operands must have the same type.");
+
+        return Type.Error;
     }
 
     @Override
     public BaseType visit(Program statement) {
+        Iterator<Statement> iterator = statement.getStatementsList().iterator();
+
+        while (iterator.hasNext()) {
+            iterator.next().visit(this);
+        }
+
         return Type.Nothing;
     }
 
@@ -379,6 +572,12 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(Statements statement) {
+        Iterator<Statement> iterator = statement.getStatementsList().iterator();
+
+        while (iterator.hasNext()) {
+            iterator.next().visit(this);
+        }
+
         return Type.Nothing;
     }
 
@@ -389,27 +588,72 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(Subtract expression) {
-        return null;
+        BaseType typeLeftExpression = expression.getLeftExpression().visit(this);
+        BaseType typeRightExpression = expression.getRightExpression().visit(this);
+
+        if (typeLeftExpression.isEqual(typeRightExpression) && (typeLeftExpression.isInt())) {
+            return Type.Int;
+        }
+
+        printErrorMessage(expression.getToken(), "Operator '-' only accepts operands of type int. Both operands must have the same type.");
+
+        return Type.Error;
     }
 
     @Override
     public BaseType visit(Super expression) {
-        return null;
+        if (mCurrentClassSymbol.getEnclosingScope() instanceof ClassSymbol) {
+            return ((ClassClassType) ((ClassSymbol) mCurrentClassSymbol.getEnclosingScope()).getType()).getClassType();
+        }
+
+        return Type.Error;
     }
 
     @Override
     public BaseType visit(TernaryOperator expression) {
-        return null;
+        BaseType typeConditionalExpression = expression.getConditionalExpression().visit(this);
+        BaseType typeThenExpression = expression.getThenExpression().visit(this);
+        BaseType typeElseExpression = expression.getElseExpression().visit(this);
+
+        if (typeConditionalExpression.isBool()) {
+            if (typeThenExpression.isClass()) {
+                ClassType lub = ((ClassType) typeThenExpression).lub((ClassType) typeElseExpression);
+                if (lub != null) {
+                    return lub;
+                } else {
+                    printErrorMessage(expression.getToken(), "Ternary operator '<condition> ? <then branch> : <else branch>' only accepts branches of the same type. The branch `then` and `else` must have an expression of the same type.");
+                }
+            } else {
+                if (typeThenExpression.isEqual(typeElseExpression)) {
+                    return typeThenExpression;
+                } else {
+                    printErrorMessage(expression.getToken(), "Ternary operator '<condition> ? <then branch> : <else branch>' only accepts branches of the same type. The branch `then` and `else` must have an expression of the same type.");
+                }
+            }
+        } else {
+            printErrorMessage(expression.getToken(), "Ternary operator '? :' only accepts condition of type bool.");
+        }
+
+        return Type.Error;
     }
 
     @Override
     public BaseType visit(This expression) {
-        return null;
+        return ((ClassClassType) mCurrentClassSymbol.getType()).getClassType();
     }
 
     @Override
     public BaseType visit(Times expression) {
-        return null;
+        BaseType typeLeftExpression = expression.getLeftExpression().visit(this);
+        BaseType typeRightExpression = expression.getRightExpression().visit(this);
+
+        if (typeLeftExpression.isEqual(typeRightExpression) && (typeLeftExpression.isInt())) {
+            return Type.Int;
+        }
+
+        printErrorMessage(expression.getToken(), "Operator '*' only accepts operands of type int. Both operands must have the same type.");
+
+        return Type.Error;
     }
 
     @Override
@@ -427,7 +671,32 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(VariableDefinition statement) {
-        return Type.Nothing;
+        if (statement.getInitExpression() != null) {
+            BaseType typeVariable = statement.getType();
+            BaseType typeInitExpression = statement.getInitExpression().visit(this);
+
+            if (((typeVariable.isInt()) || (typeVariable.isChar()) || (typeVariable.isBool()) || (typeVariable.isArray())) &&
+                    (typeVariable.isEqual(typeInitExpression))) {
+                return Type.Nothing;
+            }
+
+            if (((typeVariable.isClass()) || (typeVariable.isArray())) && (typeInitExpression.isNil())) {
+                return Type.Nothing;
+            }
+
+            if ((typeVariable.isClass()) && (typeInitExpression.isClass())) {
+                ClassType classTypeVariable = (ClassType) typeVariable;
+                ClassType classTypeInitExpression = (ClassType) typeInitExpression;
+
+                if (classTypeInitExpression.isSubclassOf(classTypeVariable)) {
+                    return Type.Nothing;
+                }
+            }
+
+            printErrorMessage(statement.getToken(), "Can not assign value of type '" + typeInitExpression + "' to variable of type '" + typeVariable + "'.");
+        }
+
+        return Type.Error;
     }
 
     @Override

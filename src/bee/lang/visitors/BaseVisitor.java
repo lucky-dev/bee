@@ -14,7 +14,6 @@ public interface BaseVisitor {
     void visit(Break statement);
     void visit(Continue statement);
     void visit(Call expression);
-    void visit(ChainingCall expression);
     void visit(CharLiteral expression);
     void visit(ClassDefinition statement);
     void visit(ConstructorDefinition statement);

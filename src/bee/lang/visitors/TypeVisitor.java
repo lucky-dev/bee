@@ -15,7 +15,6 @@ public interface TypeVisitor {
     BaseType visit(Break statement);
     BaseType visit(Continue statement);
     BaseType visit(Call expression);
-    BaseType visit(ChainingCall expression);
     BaseType visit(CharLiteral expression);
     BaseType visit(ClassDefinition statement);
     BaseType visit(ConstructorDefinition statement);

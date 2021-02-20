@@ -14,6 +14,10 @@ public class NewObject extends Expression {
         mArgumentsList = argumentsList;
     }
 
+    public BaseType getType() {
+        return mType;
+    }
+
     public ArgumentsList getArgumentsList() {
         return mArgumentsList;
     }

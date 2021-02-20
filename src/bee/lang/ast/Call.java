@@ -6,12 +6,18 @@ import bee.lang.visitors.TypeVisitor;
 
 public class Call extends Expression {
 
+    private Expression mExpression;
     private Identifier mIdentifier;
     private ArgumentsList mArgumentsList;
 
-    public Call(Identifier identifier, ArgumentsList argumentsList) {
+    public Call(Expression expression, Identifier identifier, ArgumentsList argumentsList) {
+        mExpression = expression;
         mIdentifier = identifier;
         mArgumentsList = argumentsList;
+    }
+
+    public Expression getExpression() {
+        return mExpression;
     }
 
     public Identifier getIdentifier() {

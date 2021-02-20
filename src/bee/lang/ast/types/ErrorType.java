@@ -16,4 +16,8 @@ public class ErrorType extends BaseType {
         return true;
     }
 
+    public String toString() {
+        return "error";
+    }
+
 }

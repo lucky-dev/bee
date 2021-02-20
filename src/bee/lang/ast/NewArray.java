@@ -16,6 +16,10 @@ public class NewArray extends Expression {
         mBaseArray = baseArray;
     }
 
+    public BaseType getType() {
+        return mType;
+    }
+
     public Expression getSize() {
         return mSize;
     }

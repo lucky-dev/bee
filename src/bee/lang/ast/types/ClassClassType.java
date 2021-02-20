@@ -8,6 +8,10 @@ public class ClassClassType extends BaseType {
         mClassType = classType;
     }
 
+    public ClassType getClassType() {
+        return mClassType;
+    }
+
     @Override
     public boolean isEqual(BaseType type) {
         if (type == null) {
@@ -25,6 +29,11 @@ public class ClassClassType extends BaseType {
         ClassClassType otherType = (ClassClassType) type;
 
         return mClassType.isEqual(otherType.mClassType);
+    }
+
+    @Override
+    public boolean isClassClass() {
+        return true;
     }
 
 }

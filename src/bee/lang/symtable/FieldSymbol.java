@@ -67,9 +67,4 @@ public class FieldSymbol implements Symbol {
     public void setNextSymbol(Symbol nextSymbol) {
     }
 
-    @Override
-    public SymbolType getSymbolType() {
-        return SymbolType.FIELD;
-    }
-
 }

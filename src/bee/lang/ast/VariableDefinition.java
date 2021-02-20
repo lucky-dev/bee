@@ -1,21 +1,28 @@
 package bee.lang.ast;
 
 import bee.lang.ast.types.BaseType;
+import bee.lang.lexer.Token;
 import bee.lang.visitors.BaseVisitor;
 import bee.lang.visitors.TypeVisitor;
 
 public class VariableDefinition extends Statement {
 
+    private Token mToken;
     private boolean isConst;
     private Identifier mIdentifier;
     private BaseType mType;
     private Expression mInitExpression;
 
-    public VariableDefinition(boolean isConst, Identifier identifier, BaseType type, Expression initExpression) {
+    public VariableDefinition(Token token, boolean isConst, Identifier identifier, BaseType type, Expression initExpression) {
+        mToken = token;
         this.isConst = isConst;
         mIdentifier = identifier;
         mType = type;
         mInitExpression = initExpression;
+    }
+
+    public Token getToken() {
+        return mToken;
     }
 
     public boolean isConst() {

@@ -79,9 +79,4 @@ public class MethodSymbol extends BaseScope implements Symbol {
         mNextSymbol = nextSymbol;
     }
 
-    @Override
-    public SymbolType getSymbolType() {
-        return SymbolType.METHOD;
-    }
-
 }

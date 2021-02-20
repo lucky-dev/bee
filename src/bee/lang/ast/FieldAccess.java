@@ -6,16 +6,16 @@ import bee.lang.visitors.TypeVisitor;
 
 public class FieldAccess extends Expression {
 
-    private Expression mExpressionParent;
+    private Expression mExpression;
     private Identifier mIdentifier;
 
-    public FieldAccess(Expression expressionParent, Identifier identifier) {
-        mExpressionParent = expressionParent;
+    public FieldAccess(Expression expression, Identifier identifier) {
+        mExpression = expression;
         mIdentifier = identifier;
     }
 
-    public Expression getExpressionParent() {
-        return mExpressionParent;
+    public Expression getExpression() {
+        return mExpression;
     }
 
     public Identifier getIdentifier() {

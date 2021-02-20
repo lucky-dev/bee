@@ -10,6 +10,10 @@ import bee.lang.visitors.BaseVisitor;
 
 import java.util.*;
 
+// This class creates a new symbol table. Symbol table has such format: Global scope <- Base class scope <- Subclass scope <- Method scope <- Local (block) scope.
+// Global scope contains names of all classes.
+// Class scope contains names of all methods and fields.
+// Method scope and local (block) scope contain names of local variables.
 public class NewSymbolTableVisitor implements BaseVisitor {
 
     private BaseScope mCurrentScope;
@@ -74,15 +78,6 @@ public class NewSymbolTableVisitor implements BaseVisitor {
 
     @Override
     public void visit(Call expression) {
-        Iterator<Expression> iterator = expression.getArgumentsList().getExpressionList().iterator();
-
-        while (iterator.hasNext()) {
-            iterator.next().visit(this);
-        }
-    }
-
-    @Override
-    public void visit(ChainingCall expression) {
         expression.getExpression().visit(this);
 
         Iterator<Expression> iterator = expression.getArgumentsList().getExpressionList().iterator();
@@ -119,7 +114,7 @@ public class NewSymbolTableVisitor implements BaseVisitor {
 
             mCurrentScope = classSymbol.getScope();
         } else {
-            printErrorMessage(statement.getClassIdentifier().getToken(), "Class '" + statement.getClassIdentifier().getName() + "' is already defined");
+            printErrorMessage(statement.getClassIdentifier().getToken(), "Class '" + statement.getClassIdentifier().getName() + "' is already defined.");
         }
     }
 
@@ -171,7 +166,7 @@ public class NewSymbolTableVisitor implements BaseVisitor {
 
     @Override
     public void visit(FieldAccess expression) {
-        expression.getExpressionParent().visit(this);
+        expression.getExpression().visit(this);
     }
 
     @Override
@@ -183,7 +178,7 @@ public class NewSymbolTableVisitor implements BaseVisitor {
         if (symbol == null) {
             mCurrentScope.put(new FieldSymbol(statement.getAccessModifier(), statement.isStatic(), variableDefinition.isConst(), variableDefinition.getIdentifier(), variableDefinition.getType()));
         } else {
-            printErrorMessage(statement.getVariableDefinition().getIdentifier().getToken(), mCurrentScope.getScopeName() + " already has the identifier '" + statement.getVariableDefinition().getIdentifier().getName() + "'");
+            printErrorMessage(statement.getVariableDefinition().getIdentifier().getToken(), mCurrentScope.getScopeName() + " already has the identifier '" + statement.getVariableDefinition().getIdentifier().getName() + "'.");
         }
     }
 
@@ -202,7 +197,7 @@ public class NewSymbolTableVisitor implements BaseVisitor {
     @Override
     public void visit(Identifier expression) {
         if (mCurrentScope.getSymbol(expression.getName()) == null) {
-            printErrorMessage(expression.getToken(), mCurrentScope.getScopeName() + " has no the identifier '" + expression.getName() + "'");
+            printErrorMessage(expression.getToken(), mCurrentScope.getScopeName() + " has no the identifier '" + expression.getName() + "'.");
         }
     }
 
@@ -235,8 +230,8 @@ public class NewSymbolTableVisitor implements BaseVisitor {
     public void visit(MethodDefinition statement) {
         Symbol symbol = mCurrentScope.getSymbolInCurrentScope(statement.getIdentifier().getName());
 
-        if ((symbol != null) && (symbol.getSymbolType() != SymbolType.METHOD)) {
-            printErrorMessage(statement.getIdentifier().getToken(), "'" + mCurrentScope + "' has already had the identifier '" + statement.getIdentifier().getName() + "'");
+        if ((symbol != null) && (!(symbol instanceof MethodSymbol))) {
+            printErrorMessage(statement.getIdentifier().getToken(), "'" + mCurrentScope + "' has already had the identifier '" + statement.getIdentifier().getName() + "'.");
             return;
         }
 
@@ -313,9 +308,14 @@ public class NewSymbolTableVisitor implements BaseVisitor {
     @Override
     public void visit(Program statement) {
         HashMap<String, ClassDefinition> allClasses = new HashMap<>();
+        // Store the list of classes in format "ClassName" -> ID, e.g. "Animal" -> 1
         HashMap<String, Integer> classIds = new HashMap<>();
+        // Store the list of classes in format ID -> "ClassName", e.g. 1 -> "Animal"
         HashMap<Integer, String> invertedClassIds = new HashMap<>();
 
+        // Initialize graph of classes. Use format for graph "Class ID" -> [ "Subclass ID" ].
+        // E.g. 1 -> [ 2, 3 ] ("Animal" = 1, "Cat" = 2, "Dog" = 3).
+        // The root class of all classes has id `0` by default, but the language Bee does not support the default root class for all classes.
         ArrayList<HashSet<Integer>> graphOfClasses = new ArrayList<>();
         for (int i = 0; i < statement.getStatementsList().size() + 1; i++) {
             graphOfClasses.add(new HashSet<>());
@@ -323,6 +323,7 @@ public class NewSymbolTableVisitor implements BaseVisitor {
 
         Iterator<Statement> iterator = statement.getStatementsList().iterator();
 
+        // Class id `0` is reserved as root class (stub class) for all classes.
         int classId = 1;
 
         while (iterator.hasNext()) {
@@ -332,10 +333,13 @@ public class NewSymbolTableVisitor implements BaseVisitor {
 
             ClassType classType = Type.Class(classDefinition.getClassIdentifier());
 
-            String className = classDefinition.getClassIdentifier().getName();
-
             if (classType == null) {
                 classType = Type.defineClassType(classDefinition.getClassIdentifier());
+            }
+
+            String className = classDefinition.getClassIdentifier().getName();
+
+            if (!classIds.containsKey(className)) {
                 classIds.put(className, classId);
                 invertedClassIds.put(classId, className);
                 classId++;
@@ -344,10 +348,13 @@ public class NewSymbolTableVisitor implements BaseVisitor {
             if (classDefinition.getBaseClassIdentifier() != null) {
                 ClassType baseClassType = Type.Class(classDefinition.getBaseClassIdentifier());
 
-                String baseClassName = classDefinition.getBaseClassIdentifier().getName();
-
                 if (baseClassType == null) {
                     baseClassType = Type.defineClassType(classDefinition.getBaseClassIdentifier());
+                }
+
+                String baseClassName = classDefinition.getBaseClassIdentifier().getName();
+
+                if (!classIds.containsKey(className)) {
                     classIds.put(baseClassName, classId);
                     invertedClassIds.put(classId, baseClassName);
                     classId++;
@@ -363,14 +370,17 @@ public class NewSymbolTableVisitor implements BaseVisitor {
 
         for (String name : Type.getDefinedClassesNames()) {
             if (!allClasses.containsKey(name)) {
-                printErrorMessage(Type.Class(name).getIdentifier().getToken(), "Class '" + name + "' is not found");
+                printErrorMessage(Type.Class(name).getIdentifier().getToken(), "Class '" + name + "' is not found.");
                 return;
             }
         }
 
+        // Do topological sort of classes. Need to parse base classes first. Then need to parse subclasses.
+        // Topological sorting starts from root class with id `0`. If the graph contains cycles the current sorting algorithm does not reach these classes.
         LinkedList<Integer> sortedClassIds = topologicalSort(graphOfClasses);
 
         if (sortedClassIds.size() == graphOfClasses.size()) {
+            // Remove first class with id `0`. It is a stub.
             sortedClassIds.removeFirst();
 
             Iterator<Integer> iteratorClassIds = sortedClassIds.iterator();
@@ -379,12 +389,12 @@ public class NewSymbolTableVisitor implements BaseVisitor {
                 allClasses.get(invertedClassIds.get(iteratorClassIds.next())).visit(this);
             }
         } else {
-            printErrorMessage(null, "There is a cycle in inherited classes");
+            printErrorMessage(null, "There is a cycle in inherited classes.");
         }
 
         for (Map.Entry<String, ClassDefinition> item : allClasses.entrySet()) {
             if (item.getValue().getConstructorDefinitions().getStatementsList().isEmpty()) {
-                printErrorMessage(item.getValue().getClassIdentifier().getToken(), "Class '" + item.getKey() + "' has no constructors. Class must have at least one constructor");
+                printErrorMessage(item.getValue().getClassIdentifier().getToken(), "Class '" + item.getKey() + "' has no constructors. Class must have at least one constructor.");
             }
         }
     }
@@ -466,7 +476,7 @@ public class NewSymbolTableVisitor implements BaseVisitor {
         if (symbol == null) {
             mCurrentScope.put(new LocalVariableSymbol(statement.isConst(), statement.getIdentifier(), statement.getType()));
         } else {
-            printErrorMessage(statement.getIdentifier().getToken(), mCurrentScope.getScopeName() + "' already has the identifier '" + statement.getIdentifier().getName() + "'");
+            printErrorMessage(statement.getIdentifier().getToken(), mCurrentScope.getScopeName() + "' already has the identifier '" + statement.getIdentifier().getName() + "'.");
         }
     }
 

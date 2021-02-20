@@ -90,6 +90,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.List;
 
+// Recursive descent parser
+
 public class Parser {
 
     private Lexer mLexer;
@@ -101,6 +103,7 @@ public class Parser {
     }
 
     public Program parse(List<String> filePaths) {
+        // This variable contains all statements of the program (all classes)
         Program program = new Program();
 
         for (String filePath : filePaths) {
@@ -108,6 +111,7 @@ public class Parser {
                 File file = new File(filePath);
 
                 if ((file.exists()) && (file.isFile())) {
+                    // Read each file
                     BufferedReader bufferedReader = new BufferedReader(new FileReader(file));
 
                     StringBuilder stringBuffer = new StringBuilder();
@@ -118,16 +122,20 @@ public class Parser {
                         stringBuffer.append("\n");
                     }
 
+                    // Reset state of the lexer to handle a new file
                     mLexer.initState(stringBuffer.toString(), file.getName());
 
                     mToken = mLexer.getNextToken();
 
+                    // Parse the current file
                     Program newProgram = program();
+
+                    // All new statements add to the list of all statements of the program
                     for (Statement statement : newProgram.getStatementsList()) {
                         program.addClassDefinition(statement);
                     }
                 } else {
-                    System.out.println("Not found source code in the file " + file.getName());
+                    System.out.println("Not found source code in the file " + file.getName() + ".");
                 }
             } catch (UnexpectedTokenException | IOException e) {
                 e.printStackTrace();
@@ -277,7 +285,7 @@ public class Parser {
     }
 
     private Statement fieldDefinitionStatement(AccessModifier accessModifier, boolean isStatic) throws UnexpectedTokenException {
-        return new FieldDefinition(accessModifier, isStatic, variableDefinitionStatement());
+        return new FieldDefinition(getPreviousToken(), accessModifier, isStatic, variableDefinitionStatement());
     }
 
     private Statement methodDefinitionStatement(AccessModifier accessModifier, boolean isStatic) throws UnexpectedTokenException {
@@ -334,6 +342,8 @@ public class Parser {
     }
 
     private VariableDefinition baseVariableDeclaration() throws UnexpectedTokenException {
+        Token token = mToken;
+
         boolean isConst = false;
 
         if (isCurrentToken(TokenType.CONST)) {
@@ -351,7 +361,7 @@ public class Parser {
 
         BaseType type = extendedType();
 
-        return new VariableDefinition(isConst, identifier, type, null);
+        return new VariableDefinition(token, isConst, identifier, type, null);
     }
 
     private Statements statements() throws UnexpectedTokenException {
@@ -528,7 +538,7 @@ public class Parser {
             match(TokenType.QUESTION_MARK);
             Expression thenExpression = conditionalExpression();
             match(TokenType.COLON);
-            expression = new TernaryOperator(expression, thenExpression, conditionalExpression());
+            expression = new TernaryOperator(getPreviousToken(), expression, thenExpression, conditionalExpression());
         }
 
         return expression;
@@ -539,7 +549,7 @@ public class Parser {
 
         while (isCurrentToken(TokenType.OR)) {
             match(TokenType.OR);
-            expression = new Or(expression, logicalAndExpression());
+            expression = new Or(getPreviousToken(), expression, logicalAndExpression());
         }
 
         return expression;
@@ -565,7 +575,7 @@ public class Parser {
                 expression = new Equal(getPreviousToken(), expression, relationalExpression());
             } else {
                 match(TokenType.NOT_EQ);
-                expression = new NotEqual(expression, relationalExpression());
+                expression = new NotEqual(getPreviousToken(), expression, relationalExpression());
             }
         }
 
@@ -578,16 +588,16 @@ public class Parser {
         while (isCurrentToken(TokenType.LT, TokenType.LE, TokenType.GT, TokenType.GE)) {
             if (isCurrentToken(TokenType.LT)) {
                 match(TokenType.LT);
-                expression = new LessThan(expression, addExpression());
+                expression = new LessThan(getPreviousToken(), expression, addExpression());
             } else if (isCurrentToken(TokenType.LE)) {
                 match(TokenType.LE);
-                expression = new LessEqualThan(expression, addExpression());
+                expression = new LessEqualThan(getPreviousToken(), expression, addExpression());
             } else if (isCurrentToken(TokenType.GT)) {
                 match(TokenType.GT);
-                expression = new GreaterThan(expression, addExpression());
+                expression = new GreaterThan(getPreviousToken(), expression, addExpression());
             } else {
                 match(TokenType.GE);
-                expression = new GreaterEqualThan(expression, addExpression());
+                expression = new GreaterEqualThan(getPreviousToken(), expression, addExpression());
             }
         }
 
@@ -603,7 +613,7 @@ public class Parser {
                 expression = new Add(getPreviousToken(), expression, multExpression());
             } else {
                 match(TokenType.MINUS);
-                expression = new Subtract(expression, multExpression());
+                expression = new Subtract(getPreviousToken(), expression, multExpression());
             }
         }
 
@@ -616,13 +626,13 @@ public class Parser {
         while (isCurrentToken(TokenType.TIMES, TokenType.DIV, TokenType.MOD)) {
             if (isCurrentToken(TokenType.TIMES)) {
                 match(TokenType.TIMES);
-                expression = new Times(expression, unaryExpression());
+                expression = new Times(getPreviousToken(), expression, unaryExpression());
             } else if (isCurrentToken(TokenType.DIV)) {
                 match(TokenType.DIV);
                 expression = new Div(getPreviousToken(), expression, unaryExpression());
             } else if (isCurrentToken(TokenType.MOD)) {
                 match(TokenType.MOD);
-                expression = new Mod(expression, unaryExpression());
+                expression = new Mod(getPreviousToken(), expression, unaryExpression());
             }
         }
 
@@ -667,7 +677,7 @@ public class Parser {
 
                     match(TokenType.R_PAREN);
 
-                    expression = new ChainingCall(expression, identifier, argumentsList);
+                    expression = new Call(expression, identifier, argumentsList);
                 } else {
                     expression = new FieldAccess(expression, identifier);
                 }
@@ -708,7 +718,7 @@ public class Parser {
 
                 match(TokenType.R_PAREN);
 
-                return new Call(identifier, argumentsList);
+                return new Call(new This(), identifier, argumentsList);
             } else {
                 return identifier;
             }
@@ -750,7 +760,12 @@ public class Parser {
                 return newArray;
             } else {
                 match(TokenType.L_PAREN);
-                ArgumentsList argumentsList = argumentsList();
+
+                ArgumentsList argumentsList = new ArgumentsList();
+                if (!isCurrentToken(TokenType.R_PAREN)) {
+                    argumentsList = argumentsList();
+                }
+
                 match(TokenType.R_PAREN);
 
                 return new NewObject(type, argumentsList);
@@ -791,7 +806,7 @@ public class Parser {
             type = Type.Bool;
         } else {
             match(TokenType.IDENTIFIER);
-            type = Type.Class(new Identifier(getPreviousToken()));
+            type = Type.defineClassType(new Identifier(getPreviousToken()));
         }
 
         return type;
@@ -840,7 +855,7 @@ public class Parser {
     private static class UnexpectedTokenException extends Exception {
 
         public UnexpectedTokenException(Token token) {
-            super("Unexpected token " + token.getTokenType());
+            super("Unexpected token " + token.getTokenType() + ".");
         }
 
     }

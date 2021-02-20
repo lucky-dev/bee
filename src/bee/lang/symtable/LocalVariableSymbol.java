@@ -50,9 +50,4 @@ public class LocalVariableSymbol implements Symbol {
     public void setNextSymbol(Symbol nextSymbol) {
     }
 
-    @Override
-    public SymbolType getSymbolType() {
-        return SymbolType.LOCAL_VARIABLE;
-    }
-
 }

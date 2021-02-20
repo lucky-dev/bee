@@ -44,4 +44,8 @@ public abstract class BaseType {
         return false;
     }
 
+    public boolean isClassClass() {
+        return false;
+    }
+
 }
