@@ -16,6 +16,10 @@ public class LocalVariableSymbol implements Symbol {
         mType = type;
     }
 
+    public boolean isConst() {
+        return isConst;
+    }
+
     @Override
     public Identifier getIdentifier() {
         return mIdentifier;

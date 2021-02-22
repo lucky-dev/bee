@@ -7,13 +7,13 @@ import bee.lang.symtable.*;
 import bee.lang.visitors.TypeVisitor;
 
 import java.util.Iterator;
-import java.util.LinkedList;
 
 public class TypeCheckingVisitor implements TypeVisitor {
 
     private BaseScope mBaseScope;
     private BaseScope mCurrentScope;
     private ClassSymbol mCurrentClassSymbol;
+    private MethodSymbol mCurrentMethodSymbol;
     private BaseScope mGlobalScope;
 
     public TypeCheckingVisitor(BaseScope baseScope) {
@@ -75,13 +75,15 @@ public class TypeCheckingVisitor implements TypeVisitor {
         BaseType typeLeftExpression = expression.getLeftExpression().visit(this);
         BaseType typeRightExpression = expression.getRightExpression().visit(this);
 
+        BaseType resultType = Type.Error;
+
         if (((typeLeftExpression.isInt()) || (typeLeftExpression.isChar()) || (typeLeftExpression.isBool()) || (typeLeftExpression.isArray())) &&
                 (typeLeftExpression.isEqual(typeRightExpression))) {
-            return typeLeftExpression;
+            resultType = typeLeftExpression;
         }
 
         if (((typeLeftExpression.isClass()) || (typeLeftExpression.isArray())) && (typeRightExpression.isNil())) {
-            return typeLeftExpression;
+            resultType = typeLeftExpression;
         }
 
         if ((typeLeftExpression.isClass()) && (typeRightExpression.isClass())) {
@@ -89,13 +91,28 @@ public class TypeCheckingVisitor implements TypeVisitor {
             ClassType classTypeLeftExpression = (ClassType) typeLeftExpression;
 
             if (classTypeRightExpression.isSubclassOf(classTypeLeftExpression)) {
-                return typeLeftExpression;
+                resultType = typeLeftExpression;
             }
         }
 
-        printErrorMessage(expression.getToken(), "Can not assign value of type '" + typeRightExpression + "' to variable of type '" + typeLeftExpression + "'.");
+        // Check lvalue and rvalue for an assignment statement.
+        if ((!(expression.getLeftExpression() instanceof FieldAccess)) &&
+                (!(expression.getLeftExpression() instanceof ArrayAccess)) &&
+                (!(expression.getLeftExpression() instanceof Identifier))) {
+            printErrorMessage(expression.getToken(), "Left part of the operator '=' is not lvalue.");
+            return resultType;
+        }
 
-        return Type.Error;
+        if (expression.getRightExpression() instanceof Super) {
+            printErrorMessage(expression.getToken(), "Right part of the operator '=' is not rvalue.");
+            return resultType;
+        }
+
+        if (resultType.isError()) {
+            printErrorMessage(expression.getToken(), "Can not assign value of type '" + typeRightExpression + "' to variable of type '" + typeLeftExpression + "'.");
+        }
+
+        return resultType;
     }
 
     @Override
@@ -138,7 +155,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
         boolean isStaticExpectedMethod = expressionType.isClassClass();
 
-        ClassSymbol classSymbol = (ClassSymbol) mGlobalScope.getSymbolInCurrentScope((isStaticExpectedMethod ? ((ClassClassType) expressionType).getClassType() : (ClassType) expressionType).getIdentifier().getName());
+        ClassSymbol currentClassSymbol = (ClassSymbol) mGlobalScope.getSymbolInCurrentScope((isStaticExpectedMethod ? ((ClassClassType) expressionType).getClassType() : (ClassType) expressionType).getIdentifier().getName());
 
         MethodType expectedMethodType = new MethodType();
 
@@ -150,12 +167,12 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
         MethodSymbol foundMethodSymbol = null;
 
-        BaseScope scope = classSymbol;
+        BaseScope scope = currentClassSymbol;
 
         while (scope != null) {
             Symbol symbol = scope.getSymbolInCurrentScope(expression.getIdentifier().getName());
 
-            if ((symbol != null) && (symbol instanceof MethodSymbol)) {
+            if (symbol instanceof MethodSymbol) {
                 while (symbol != null) {
                     MethodType foundMethodType = (MethodType) symbol.getType();
 
@@ -191,7 +208,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
                         }
 
                         // If a method exists in base class and has access modifier `public` or `protected`. It can be used in subclasses. Or if the method exists in the current class then everything is OK.
-                        if ((isSuitableMethod) && ((scope == mCurrentScope) || ((((MethodSymbol) symbol).isPublic()) || (((MethodSymbol) symbol).isProtected())))) {
+                        if ((isSuitableMethod) && ((scope == currentClassSymbol) || ((((MethodSymbol) symbol).isPublic()) || (((MethodSymbol) symbol).isProtected())))) {
                             // Found method may be inherited method or overridden. If method is inherited then need to check formal arguments to prevent clashing of methods.
                             // If method is overridden then everything is OK. Keep searching of other methods.
                             if (foundMethodSymbol == null) {
@@ -213,11 +230,29 @@ public class TypeCheckingVisitor implements TypeVisitor {
             scope = scope.getEnclosingScope();
         }
 
-        if (foundMethodSymbol == null) {
-            printErrorMessage(expression.getIdentifier().getToken(), "Can not find a method '" + expression.getIdentifier().getName() + "' for such arguments.");
-        }
+        if (foundMethodSymbol != null) {
+            // Need to check where code calls this method.
+            if (foundMethodSymbol.isProtected()) {
+                // Only the current class and subclasses have access to protected methods.
+                if (!(((ClassClassType) mCurrentClassSymbol.getType()).getClassType().isSubclassOf(((ClassClassType) currentClassSymbol.getType()).getClassType()))) {
+                    printErrorMessage(expression.getIdentifier().getToken(), "Can not get access to the method '" + foundMethodSymbol.getIdentifier().getName() + "'.");
+                    return Type.Error;
+                }
+            }
 
-        return foundMethodSymbol != null ? ((MethodType) foundMethodSymbol.getType()).getReturnType() : Type.Error;
+            if (foundMethodSymbol.isPrivate()) {
+                // Only the current class has access to private methods.
+                if (!((((ClassClassType) currentClassSymbol.getType()).getClassType()).isEqual(((ClassClassType) mCurrentClassSymbol.getType()).getClassType()))) {
+                    printErrorMessage(expression.getIdentifier().getToken(), "Can not get access to the method '" + foundMethodSymbol.getIdentifier().getName() + "'.");
+                    return Type.Error;
+                }
+            }
+
+            return ((MethodType) foundMethodSymbol.getType()).getReturnType();
+        } else {
+            printErrorMessage(expression.getIdentifier().getToken(), "Can not find a method '" + expression.getIdentifier().getName() + "' for such arguments.");
+            return Type.Error;
+        }
     }
 
     @Override
@@ -273,7 +308,11 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
         mCurrentScope = currentConstructor;
 
+        mCurrentMethodSymbol = currentConstructor;
+
         statement.getBody().visit(this);
+
+        mCurrentMethodSymbol = null;
 
         mCurrentScope = mCurrentScope.getEnclosingScope();
 
@@ -323,13 +362,35 @@ public class TypeCheckingVisitor implements TypeVisitor {
     public BaseType visit(FieldAccess expression) {
         BaseType expressionType = expression.getExpression().visit(this);
 
-        if (expressionType.isClass()) {
-            BaseScope scope = (ClassSymbol) mGlobalScope.getSymbolInCurrentScope(((ClassType) expressionType).getIdentifier().getName());
+        if ((expressionType.isClass()) || (expressionType.isClassClass())) {
+            boolean isStaticField = expressionType.isClassClass();
+
+            ClassSymbol currentClassSymbol = (ClassSymbol) mGlobalScope.getSymbolInCurrentScope(isStaticField ? ((ClassClassType) expressionType).getClassType().getIdentifier().getName() : ((ClassType) expressionType).getIdentifier().getName());
+
+            BaseScope scope = currentClassSymbol;
 
             while (scope != null) {
                 Symbol symbol = scope.getSymbolInCurrentScope(expression.getIdentifier().getName());
 
-                if (symbol instanceof FieldSymbol) {
+                // Find a field in the current scope or in the base scope (class). The base scope must have the field with modifiers `public` or `protected`.
+                if ((symbol instanceof FieldSymbol) && (((FieldSymbol) symbol).isStatic() == isStaticField) && ((scope == currentClassSymbol) || ((((FieldSymbol) symbol).isPublic()) || ((FieldSymbol) symbol).isProtected()))) {
+                    // Need to check where code get access to this field.
+                    if (((FieldSymbol) symbol).isProtected()) {
+                        // Only the current class and subclasses have access to protected fields
+                        if (!(((ClassClassType) mCurrentClassSymbol.getType()).getClassType().isSubclassOf(((ClassClassType) currentClassSymbol.getType()).getClassType()))) {
+                            printErrorMessage(expression.getIdentifier().getToken(), "Can not get access to the field '" + symbol.getIdentifier().getName() + "'.");
+                            return Type.Error;
+                        }
+                    }
+
+                    if (((FieldSymbol) symbol).isPrivate()) {
+                        // Only the current class has access to private fields
+                        if (!((((ClassClassType) currentClassSymbol.getType()).getClassType()).isEqual(((ClassClassType) mCurrentClassSymbol.getType()).getClassType()))) {
+                            printErrorMessage(expression.getIdentifier().getToken(), "Can not get access to the field '" + symbol.getIdentifier().getName() + "'.");
+                            return Type.Error;
+                        }
+                    }
+
                     return symbol.getType();
                 }
 
@@ -337,39 +398,14 @@ public class TypeCheckingVisitor implements TypeVisitor {
             }
         }
 
+        printErrorMessage(expression.getIdentifier().getToken(), "Can not find the field '" + expression.getIdentifier().getName() + "'.");
+
         return Type.Error;
     }
 
     @Override
     public BaseType visit(FieldDefinition statement) {
-        VariableDefinition variableDefinitionStatement = statement.getVariableDefinition();
-
-        if (variableDefinitionStatement.getInitExpression() != null) {
-            BaseType typeVariable = variableDefinitionStatement.getType();
-            BaseType typeInitExpression = variableDefinitionStatement.getInitExpression().visit(this);
-
-            if (((typeVariable.isInt()) || (typeVariable.isChar()) || (typeVariable.isBool()) || (typeVariable.isArray())) &&
-                    (typeVariable.isEqual(typeInitExpression))) {
-                return Type.Nothing;
-            }
-
-            if (((typeVariable.isClass()) || (typeVariable.isArray())) && (typeInitExpression.isNil())) {
-                return Type.Nothing;
-            }
-
-            if ((typeVariable.isClass()) && (typeInitExpression.isClass())) {
-                ClassType classTypeVariable = (ClassType) typeVariable;
-                ClassType classTypeInitExpression = (ClassType) typeInitExpression;
-
-                if (classTypeInitExpression.isSubclassOf(classTypeVariable)) {
-                    return Type.Nothing;
-                }
-            }
-
-            printErrorMessage(statement.getToken(), "Can not assign value of type '" + typeInitExpression + "' to variable of type '" + typeVariable + "'.");
-        }
-
-        return Type.Error;
+        return statement.getVariableDefinition().visit(this);
     }
 
     @Override
@@ -402,9 +438,29 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(Identifier expression) {
-        Symbol symbol = mCurrentScope.getSymbol(expression.getName());
+        BaseScope scope = mCurrentScope;
 
-        return symbol != null ? symbol.getType() : Type.Error;
+        while (scope != null) {
+            Symbol symbol = scope.getSymbolInCurrentScope(expression.getName());
+
+            if (symbol instanceof FieldSymbol) {
+                // Find a field in the current scope (class) or in the base scope (class). The base scope must have the field with modifiers `public` or `protected`.
+                if ((!((FieldSymbol) symbol).isStatic()) && ((scope == mCurrentClassSymbol) || ((((FieldSymbol) symbol).isPublic()) || ((FieldSymbol) symbol).isProtected()))) {
+                    return symbol.getType();
+                } else {
+                    printErrorMessage(expression.getToken(), "Can not have access to the identifier '" + symbol.getIdentifier().getName() + "'.");
+                    break;
+                }
+            } else {
+                if (symbol != null) {
+                    return symbol.getType();
+                }
+            }
+
+            scope = scope.getEnclosingScope();
+        }
+
+        return Type.Error;
     }
 
     @Override
@@ -458,11 +514,9 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
         methodType.addReturnType(statement.getReturnType());
 
-        Symbol symbol = mCurrentScope.getSymbolInCurrentScope(statement.getIdentifier().getName());
-
         MethodSymbol currentMethod = null;
 
-        Symbol method = symbol;
+        Symbol method = mCurrentScope.getSymbolInCurrentScope(statement.getIdentifier().getName());
 
         while (method != null) {
             if ((statement.getAccessModifier() == ((MethodSymbol) method).getAccessModifier()) &&
@@ -477,7 +531,11 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
         mCurrentScope = currentMethod;
 
+        mCurrentMethodSymbol = currentMethod;
+
         statement.getBody().visit(this);
+
+        mCurrentMethodSymbol = null;
 
         mCurrentScope = mCurrentScope.getEnclosingScope();
 
@@ -505,7 +563,105 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(NewObject expression) {
-        return expression.getType();
+        BaseType expressionType = expression.getType();
+
+        ClassSymbol currentClassSymbol = (ClassSymbol) mGlobalScope.getSymbolInCurrentScope(((ClassType) expressionType).getIdentifier().getName());
+
+        MethodType expectedMethodType = new MethodType();
+
+        Iterator<Expression> iterator = expression.getArgumentsList().getExpressionList().iterator();
+
+        while (iterator.hasNext()) {
+            expectedMethodType.addFormalArgumentType(iterator.next().visit(this));
+        }
+
+        MethodSymbol foundMethodSymbol = null;
+
+        BaseScope scope = currentClassSymbol;
+
+        while (scope != null) {
+            Symbol symbol = scope.getSymbolInCurrentScope("constructor");
+
+            if (symbol instanceof MethodSymbol) {
+                while (symbol != null) {
+                    MethodType foundMethodType = (MethodType) symbol.getType();
+
+                    // Expected method and found method must be or must not be static
+                    if ((expectedMethodType.getFormalArgumentTypes().size() == foundMethodType.getFormalArgumentTypes().size())) {
+                        Iterator<BaseType> expectedTypesIterator = expectedMethodType.getFormalArgumentTypes().iterator();
+                        Iterator<BaseType> foundTypesIterator = foundMethodType.getFormalArgumentTypes().iterator();
+
+                        boolean isSuitableMethod = true;
+
+                        // Check every actual and formal parameter. Find an appropriate method.
+                        while ((expectedTypesIterator.hasNext()) && (foundTypesIterator.hasNext())) {
+                            BaseType expectedType = expectedTypesIterator.next();
+                            BaseType foundType = foundTypesIterator.next();
+
+                            if (expectedType.isNil()) {
+                                if ((!foundType.isArray()) && (!foundType.isClass())) {
+                                    isSuitableMethod = false;
+                                    break;
+                                }
+                            } else {
+                                if (((expectedType.isInt()) || (expectedType.isChar()) || (expectedType.isBool()) || (expectedType.isArray())) && (!foundType.isEqual(expectedType))) {
+                                    isSuitableMethod = false;
+                                    break;
+                                }
+
+                                if ((expectedType.isClass()) && (!((ClassType) expectedType).isSubclassOf((ClassType) foundType))) {
+                                    isSuitableMethod = false;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // If a method exists in base class and has access modifier `public` or `protected`. It can be used in subclasses. Or if the method exists in the current class then everything is OK.
+                        if ((isSuitableMethod) && ((scope == currentClassSymbol) || ((((MethodSymbol) symbol).isPublic()) || (((MethodSymbol) symbol).isProtected())))) {
+                            // Found method may be inherited method or overridden. If method is inherited then need to check formal arguments to prevent clashing of methods.
+                            // If method is overridden then everything is OK. Keep searching of other methods.
+                            if (foundMethodSymbol == null) {
+                                foundMethodSymbol = (MethodSymbol) symbol;
+                            } else {
+                                // Another method with the same formal parameters are found. It is an error.
+                                if (!expectedMethodType.isEqualFormalArguments((MethodType) foundMethodSymbol.getType())) {
+                                    printErrorMessage(expression.getToken(), "Clash of constructors.");
+                                    return Type.Error;
+                                }
+                            }
+                        }
+                    }
+
+                    symbol = symbol.getNextSymbol();
+                }
+            }
+
+            scope = scope.getEnclosingScope();
+        }
+
+        if (foundMethodSymbol != null) {
+            // Need to check where code calls this method.
+            if (foundMethodSymbol.isProtected()) {
+                // Only the current class and subclasses have access to protected methods.
+                if (!(((ClassClassType) mCurrentClassSymbol.getType()).getClassType().isSubclassOf(((ClassClassType) currentClassSymbol.getType()).getClassType()))) {
+                    printErrorMessage(expression.getToken(), "Can not get access to the constructor.");
+                    return Type.Error;
+                }
+            }
+
+            if (foundMethodSymbol.isPrivate()) {
+                // Only the current class has access to private methods.
+                if (!((((ClassClassType) currentClassSymbol.getType()).getClassType()).isEqual(((ClassClassType) mCurrentClassSymbol.getType()).getClassType()))) {
+                    printErrorMessage(expression.getToken(), "Can not get access to the constructor.");
+                    return Type.Error;
+                }
+            }
+
+            return ((MethodType) foundMethodSymbol.getType()).getReturnType();
+        } else {
+            printErrorMessage(expression.getToken(), "Can not find a constructor for such arguments.");
+            return Type.Error;
+        }
     }
 
     @Override
@@ -602,6 +758,13 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(Super expression) {
+        if ((mCurrentMethodSymbol != null) && (mCurrentMethodSymbol.isStatic())) {
+            printErrorMessage(expression.getToken(), "`super` can not be used in the static method.");
+
+            return Type.Error;
+        }
+
+        // The current class must have the base class to return type of the reference `super`.
         if (mCurrentClassSymbol.getEnclosingScope() instanceof ClassSymbol) {
             return ((ClassClassType) ((ClassSymbol) mCurrentClassSymbol.getEnclosingScope()).getType()).getClassType();
         }
@@ -639,6 +802,12 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(This expression) {
+        if ((mCurrentMethodSymbol != null) && (mCurrentMethodSymbol.isStatic())) {
+            printErrorMessage(expression.getToken(), "`this` can not be used in the static method.");
+
+            return Type.Error;
+        }
+
         return ((ClassClassType) mCurrentClassSymbol.getType()).getClassType();
     }
 
@@ -671,17 +840,19 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(VariableDefinition statement) {
+        BaseType resultType = Type.Error;
+
         if (statement.getInitExpression() != null) {
             BaseType typeVariable = statement.getType();
             BaseType typeInitExpression = statement.getInitExpression().visit(this);
 
             if (((typeVariable.isInt()) || (typeVariable.isChar()) || (typeVariable.isBool()) || (typeVariable.isArray())) &&
                     (typeVariable.isEqual(typeInitExpression))) {
-                return Type.Nothing;
+                resultType = Type.Nothing;
             }
 
             if (((typeVariable.isClass()) || (typeVariable.isArray())) && (typeInitExpression.isNil())) {
-                return Type.Nothing;
+                resultType = Type.Nothing;
             }
 
             if ((typeVariable.isClass()) && (typeInitExpression.isClass())) {
@@ -689,14 +860,22 @@ public class TypeCheckingVisitor implements TypeVisitor {
                 ClassType classTypeInitExpression = (ClassType) typeInitExpression;
 
                 if (classTypeInitExpression.isSubclassOf(classTypeVariable)) {
-                    return Type.Nothing;
+                    resultType = Type.Nothing;
                 }
             }
 
-            printErrorMessage(statement.getToken(), "Can not assign value of type '" + typeInitExpression + "' to variable of type '" + typeVariable + "'.");
+            // Check rvalue to initialize a variable.
+            if (statement.getInitExpression() instanceof Super) {
+                printErrorMessage(statement.getToken(), "Right part of the operator '=' is not rvalue.");
+                return resultType;
+            }
+
+            if (resultType.isError()) {
+                printErrorMessage(statement.getToken(), "Can not assign value of type '" + typeInitExpression + "' to variable of type '" + typeVariable + "'.");
+            }
         }
 
-        return Type.Error;
+        return resultType;
     }
 
     @Override

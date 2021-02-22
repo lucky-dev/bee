@@ -9,11 +9,11 @@ import bee.lang.visitors.BaseVisitor;
 
 import java.util.*;
 
-public class ValidatingMethodsSymbolTableVisitor implements BaseVisitor {
+public class ValidatingMethodsVisitor implements BaseVisitor {
 
     private BaseScope mCurrentScope;
 
-    public ValidatingMethodsSymbolTableVisitor(BaseScope scope) {
+    public ValidatingMethodsVisitor(BaseScope scope) {
         mCurrentScope = scope;
     }
 
@@ -208,7 +208,7 @@ public class ValidatingMethodsSymbolTableVisitor implements BaseVisitor {
             symbol = scope.getSymbolInCurrentScope(statement.getIdentifier().getName());
 
             // Ignore fields with the same name.
-            if ((symbol != null) && (symbol instanceof MethodSymbol)) {
+            if (symbol instanceof MethodSymbol) {
                 MethodSymbol foundMethodSymbol = null;
 
                 Symbol currentSymbol = symbol;

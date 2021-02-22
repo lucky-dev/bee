@@ -25,6 +25,18 @@ public class FieldSymbol implements Symbol {
         return mAccessModifier;
     }
 
+    public boolean isPublic() {
+        return mAccessModifier == AccessModifier.PUBLIC;
+    }
+
+    public boolean isProtected() {
+        return mAccessModifier == AccessModifier.PROTECTED;
+    }
+
+    public boolean isPrivate() {
+        return mAccessModifier == AccessModifier.PRIVATE;
+    }
+
     public boolean isStatic() {
         return isStatic;
     }

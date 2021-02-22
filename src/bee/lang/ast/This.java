@@ -1,10 +1,21 @@
 package bee.lang.ast;
 
 import bee.lang.ast.types.BaseType;
+import bee.lang.lexer.Token;
 import bee.lang.visitors.BaseVisitor;
 import bee.lang.visitors.TypeVisitor;
 
 public class This extends Expression {
+
+    private Token mToken;
+
+    public This(Token token) {
+        mToken = token;
+    }
+
+    public Token getToken() {
+        return mToken;
+    }
 
     @Override
     public BaseType visit(TypeVisitor visitor) {

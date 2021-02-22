@@ -690,10 +690,10 @@ public class Parser {
     private Expression primaryExpression() throws UnexpectedTokenException {
         if (isCurrentToken(TokenType.THIS)) {
             match(TokenType.THIS);
-            return new This();
+            return new This(getPreviousToken());
         } else if (isCurrentToken(TokenType.SUPER)) {
             match(TokenType.SUPER);
-            return new Super();
+            return new Super(getPreviousToken());
         } else if (isCurrentToken(TokenType.TRUE)) {
             match(TokenType.TRUE);
             return new BoolLiteral(true);
@@ -718,7 +718,7 @@ public class Parser {
 
                 match(TokenType.R_PAREN);
 
-                return new Call(new This(), identifier, argumentsList);
+                return new Call(new This(mToken), identifier, argumentsList);
             } else {
                 return identifier;
             }
@@ -740,6 +740,8 @@ public class Parser {
             match(TokenType.R_PAREN);
             return expression;
         } else {
+            Token token = mToken;
+
             match(TokenType.NEW);
 
             BaseType type = type();
@@ -768,7 +770,7 @@ public class Parser {
 
                 match(TokenType.R_PAREN);
 
-                return new NewObject(type, argumentsList);
+                return new NewObject(token, type, argumentsList);
             }
         }
     }

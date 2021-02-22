@@ -4,7 +4,7 @@ import bee.lang.ast.Program;
 import bee.lang.lexer.Lexer;
 import bee.lang.parser.Parser;
 import bee.lang.semanalysis.TypeCheckingVisitor;
-import bee.lang.semanalysis.ValidatingMethodsSymbolTableVisitor;
+import bee.lang.semanalysis.ValidatingMethodsVisitor;
 import bee.lang.symtable.BaseScope;
 import bee.lang.semanalysis.NewSymbolTableVisitor;
 
@@ -17,8 +17,8 @@ public class Main {
         NewSymbolTableVisitor symbolTableVisitor = new NewSymbolTableVisitor();
         symbolTableVisitor.visit(program);
         BaseScope scope = symbolTableVisitor.getCurrentScope();
-        ValidatingMethodsSymbolTableVisitor validatingMethodsSymbolTableVisitor = new ValidatingMethodsSymbolTableVisitor(scope);
-        validatingMethodsSymbolTableVisitor.visit(program);
+        ValidatingMethodsVisitor validatingMethodsVisitor = new ValidatingMethodsVisitor(scope);
+        validatingMethodsVisitor.visit(program);
         TypeCheckingVisitor typeCheckingVisitor = new TypeCheckingVisitor(scope);
         typeCheckingVisitor.visit(program);
 

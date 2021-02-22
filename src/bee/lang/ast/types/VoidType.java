@@ -16,4 +16,8 @@ public class VoidType extends BaseType {
         return false;
     }
 
+    public String toString() {
+        return "void";
+    }
+
 }

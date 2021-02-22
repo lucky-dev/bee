@@ -1,17 +1,24 @@
 package bee.lang.ast;
 
 import bee.lang.ast.types.BaseType;
+import bee.lang.lexer.Token;
 import bee.lang.visitors.BaseVisitor;
 import bee.lang.visitors.TypeVisitor;
 
 public class NewObject extends Expression {
 
+    private Token mToken;
     private BaseType mType;
     private ArgumentsList mArgumentsList;
 
-    public NewObject(BaseType type, ArgumentsList argumentsList) {
+    public NewObject(Token token, BaseType type, ArgumentsList argumentsList) {
+        mToken = token;
         mType = type;
         mArgumentsList = argumentsList;
+    }
+
+    public Token getToken() {
+        return mToken;
     }
 
     public BaseType getType() {

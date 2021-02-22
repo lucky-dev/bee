@@ -86,19 +86,20 @@ public class MethodType extends BaseType {
 
         Iterator<BaseType> iteratorTypes = mFormalArgumentTypes.iterator();
 
+        sb.append("(");
+
         if (iteratorTypes.hasNext()) {
             sb.append(iteratorTypes.next());
+
+            while (iteratorTypes.hasNext()) {
+                sb.append(", ");
+                sb.append(iteratorTypes.next());
+            }
         }
 
-        while (iteratorTypes.hasNext()) {
-            sb.append(", ");
-            sb.append(iteratorTypes.next());
-        }
-
-        if (!mReturnType.isEqual(Type.Void)) {
-            sb.append(" -> ");
-            sb.append(mReturnType);
-        }
+        sb.append(")");
+        sb.append(" -> ");
+        sb.append(mReturnType);
 
         return sb.toString();
     }
