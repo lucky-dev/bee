@@ -10,11 +10,11 @@ import java.util.Iterator;
 
 public class TypeCheckingVisitor implements TypeVisitor {
 
-    private BaseScope mBaseScope;
-    private BaseScope mCurrentScope;
-    private ClassSymbol mCurrentClassSymbol;
-    private MethodSymbol mCurrentMethodSymbol;
-    private BaseScope mGlobalScope;
+    protected BaseScope mBaseScope;
+    protected BaseScope mCurrentScope;
+    protected ClassSymbol mCurrentClassSymbol;
+    protected MethodSymbol mCurrentMethodSymbol;
+    protected BaseScope mGlobalScope;
 
     public TypeCheckingVisitor(BaseScope baseScope) {
         mBaseScope = baseScope;
@@ -883,7 +883,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
         return Type.Nothing;
     }
 
-    private void printErrorMessage(Token token, String message) {
+    protected void printErrorMessage(Token token, String message) {
         System.out.println("[ " + token.getFileName() + " : " + token.getLine() + " ] " + message);
     }
 

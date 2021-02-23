@@ -137,8 +137,10 @@ public class Parser {
                 } else {
                     System.out.println("Not found source code in the file " + file.getName() + ".");
                 }
-            } catch (UnexpectedTokenException | IOException e) {
+            } catch (IOException e) {
                 e.printStackTrace();
+            } catch (UnexpectedTokenException e) {
+                System.out.println(e.toString());
             }
         }
 
@@ -153,7 +155,7 @@ public class Parser {
             mToken = mLexer.getNextToken();
             program = program();
         } catch (UnexpectedTokenException e) {
-            e.printStackTrace();
+            System.out.println(e.toString());
         }
 
         return program;
@@ -245,8 +247,8 @@ public class Parser {
 
         match(TokenType.R_PAREN);
 
-        ArgumentsList superConstructorArgumentsList = new ArgumentsList();
-        ArgumentsList otherConstructorArgumentsList = new ArgumentsList();
+        ArgumentsList superConstructorArgumentsList = null;
+        ArgumentsList otherConstructorArgumentsList = null;
 
         if (isCurrentToken(TokenType.COLON)) {
             match(TokenType.COLON);
@@ -256,6 +258,9 @@ public class Parser {
             if (isCurrentToken(TokenType.SUPER)) {
                 match(TokenType.SUPER);
                 isSuperConstructor = true;
+                superConstructorArgumentsList = new ArgumentsList();
+            } else {
+                otherConstructorArgumentsList = new ArgumentsList();
             }
 
             match(TokenType.L_PAREN);
@@ -856,8 +861,14 @@ public class Parser {
 
     private static class UnexpectedTokenException extends Exception {
 
+        private Token mToken;
+
         public UnexpectedTokenException(Token token) {
-            super("Unexpected token " + token.getTokenType() + ".");
+            mToken = token;
+        }
+
+        public String toString() {
+            return "[" + mToken.getFileName() + " : " + mToken.getLine() + "] Unexpected token '" + mToken.getTokenType() + "'.";
         }
 
     }

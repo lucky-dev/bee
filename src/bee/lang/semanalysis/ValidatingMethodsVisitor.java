@@ -31,13 +31,10 @@ public class ValidatingMethodsVisitor implements BaseVisitor {
 
     @Override
     public void visit(Assignment expression) {
-        expression.getLeftExpression().visit(this);
-        expression.getRightExpression().visit(this);
     }
 
     @Override
     public void visit(AssignmentStatement statement) {
-        statement.getExpression().visit(this);
     }
 
     @Override
@@ -70,7 +67,6 @@ public class ValidatingMethodsVisitor implements BaseVisitor {
 
         mCurrentScope = classSymbol;
 
-        statement.getFieldDefinitions().visit(this);
         statement.getConstructorDefinitions().visit(this);
         statement.getMethodDefinitions().visit(this);
 

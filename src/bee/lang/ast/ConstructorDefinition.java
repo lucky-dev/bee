@@ -23,6 +23,14 @@ public class ConstructorDefinition extends Statement {
         mBody = body;
     }
 
+    public ArgumentsList getSuperConstructorArgumentsList() {
+        return mSuperConstructorArgumentsList;
+    }
+
+    public ArgumentsList getOtherConstructorArgumentsList() {
+        return mOtherConstructorArgumentsList;
+    }
+
     public Token getToken() {
         return mToken;
     }
