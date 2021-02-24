@@ -52,7 +52,7 @@ public class Lexer {
 
     public void initState(String text, String fileName) {
         mText = text;
-        mNumberOfLine = 0;
+        mNumberOfLine = 1;
         mCurrentPosition = -1;
         mCurrentChar = ' ';
         mFileName = fileName;
@@ -157,7 +157,7 @@ public class Lexer {
                         if (isEnd()) {
                             System.out.println("An unexpected the end of the file.");
                         } else {
-                            System.out.println("An unexpected character '" + mCurrentChar + "' in the line " + mNumberOfLines + ".");
+                            System.out.println("An unexpected character '" + mCurrentChar + "' in the line " + mNumberOfLine + ".");
 
                             moveToEndOfLine();
                         }

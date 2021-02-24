@@ -3,7 +3,6 @@ package bee.lang.semanalysis;
 import bee.lang.ast.*;
 import bee.lang.ast.types.*;
 import bee.lang.symtable.BaseScope;
-import bee.lang.symtable.ClassSymbol;
 import bee.lang.symtable.MethodSymbol;
 import bee.lang.symtable.Symbol;
 
@@ -11,12 +10,18 @@ import java.util.Iterator;
 
 public class ValidatingConstructorsVisitor extends TypeCheckingVisitor {
 
+    private boolean isInsideOfConstructor;
+
     public ValidatingConstructorsVisitor(BaseScope baseScope) {
         super(baseScope);
     }
 
     @Override
     public BaseType visit(ConstructorDefinition statement) {
+        isInsideOfConstructor = true;
+        statement.getBody().visit(this);
+        isInsideOfConstructor = false;
+
         // Bee does not the root class for all classes by default. If the keyword `super` uses in a constructor of a class without a base class then need to ignore this case and do not find constructors in a base class.
         if ((statement.getSuperConstructorArgumentsList() != null) && (!statement.getSuperConstructorArgumentsList().getExpressionList().isEmpty()) && (mCurrentClassSymbol.getBaseClassIdentifier() == null)) {
             printErrorMessage(statement.getToken(), "A class without a base class can not call super-constructor with arguments.");
@@ -104,6 +109,16 @@ public class ValidatingConstructorsVisitor extends TypeCheckingVisitor {
             printErrorMessage(statement.getToken(), "Can not find a constructor for such arguments.");
             return Type.Error;
         }
+    }
+
+    @Override
+    public BaseType visit(Return statement) {
+        if (isInsideOfConstructor) {
+            printErrorMessage(statement.getToken(), "The keyword `return` inside of a constructor is not allowed.");
+            return Type.Error;
+        }
+
+        return Type.Nothing;
     }
 
 }

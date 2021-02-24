@@ -3,11 +3,8 @@ package bee.lang;
 import bee.lang.ast.Program;
 import bee.lang.lexer.Lexer;
 import bee.lang.parser.Parser;
-import bee.lang.semanalysis.TypeCheckingVisitor;
-import bee.lang.semanalysis.ValidatingConstructorsVisitor;
-import bee.lang.semanalysis.ValidatingMethodsVisitor;
+import bee.lang.semanalysis.*;
 import bee.lang.symtable.BaseScope;
-import bee.lang.semanalysis.NewSymbolTableVisitor;
 
 public class Main {
 
@@ -23,6 +20,8 @@ public class Main {
         typeCheckingVisitor.visit(program);
         ValidatingConstructorsVisitor validatingConstructorsVisitor = new ValidatingConstructorsVisitor(scope);
         validatingConstructorsVisitor.visit(program);
+        ValidatingLoopsVisitor validatingLoopsVisitor = new ValidatingLoopsVisitor();
+        validatingLoopsVisitor.visit(program);
     }
 
 }

@@ -472,7 +472,7 @@ public class Parser {
     private Statement breakStatement() throws UnexpectedTokenException {
         match(TokenType.BREAK);
 
-        Break breakStatement = new Break();
+        Break breakStatement = new Break(getPreviousToken());
 
         match(TokenType.SEMICOLON);
 
@@ -482,7 +482,7 @@ public class Parser {
     private Statement continueStatement() throws UnexpectedTokenException {
         match(TokenType.CONTINUE);
 
-        Continue continueStatement = new Continue();
+        Continue continueStatement = new Continue(getPreviousToken());
 
         match(TokenType.SEMICOLON);
 
@@ -490,15 +490,18 @@ public class Parser {
     }
 
     private Statement returnStatement() throws UnexpectedTokenException {
+        Token token = mToken;
+
         match(TokenType.RETURN);
 
         if (!isCurrentToken(TokenType.SEMICOLON)) {
-            Return returnStatement = new Return(conditionalExpression());
+            Return returnStatement = new Return(token, conditionalExpression());
             match(TokenType.SEMICOLON);
             return returnStatement;
+        } else {
+            match(TokenType.SEMICOLON);
+            return new Return(token);
         }
-
-        return new Return();
     }
 
     private ArgumentsList argumentsList() throws UnexpectedTokenException {
