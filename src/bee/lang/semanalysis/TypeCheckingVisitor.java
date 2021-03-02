@@ -577,72 +577,62 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
         MethodSymbol foundMethodSymbol = null;
 
-        BaseScope scope = currentClassSymbol;
+        Symbol symbol = currentClassSymbol.getSymbolInCurrentScope("constructor");
 
-        while (scope != null) {
-            Symbol symbol = scope.getSymbolInCurrentScope("constructor");
+        if (symbol instanceof MethodSymbol) {
+            while (symbol != null) {
+                MethodType foundMethodType = (MethodType) symbol.getType();
 
-            if (symbol instanceof MethodSymbol) {
-                while (symbol != null) {
-                    MethodType foundMethodType = (MethodType) symbol.getType();
+                if ((expectedMethodType.getFormalArgumentTypes().size() == foundMethodType.getFormalArgumentTypes().size())) {
+                    Iterator<BaseType> expectedTypesIterator = expectedMethodType.getFormalArgumentTypes().iterator();
+                    Iterator<BaseType> foundTypesIterator = foundMethodType.getFormalArgumentTypes().iterator();
 
-                    // Expected method and found method must be or must not be static
-                    if ((expectedMethodType.getFormalArgumentTypes().size() == foundMethodType.getFormalArgumentTypes().size())) {
-                        Iterator<BaseType> expectedTypesIterator = expectedMethodType.getFormalArgumentTypes().iterator();
-                        Iterator<BaseType> foundTypesIterator = foundMethodType.getFormalArgumentTypes().iterator();
+                    boolean isSuitableMethod = true;
 
-                        boolean isSuitableMethod = true;
+                    // Check every actual and formal parameter. Find an appropriate constructor.
+                    while ((expectedTypesIterator.hasNext()) && (foundTypesIterator.hasNext())) {
+                        BaseType expectedType = expectedTypesIterator.next();
+                        BaseType foundType = foundTypesIterator.next();
 
-                        // Check every actual and formal parameter. Find an appropriate method.
-                        while ((expectedTypesIterator.hasNext()) && (foundTypesIterator.hasNext())) {
-                            BaseType expectedType = expectedTypesIterator.next();
-                            BaseType foundType = foundTypesIterator.next();
-
-                            if (expectedType.isNil()) {
-                                if ((!foundType.isArray()) && (!foundType.isClass())) {
-                                    isSuitableMethod = false;
-                                    break;
-                                }
-                            } else {
-                                if (((expectedType.isInt()) || (expectedType.isChar()) || (expectedType.isBool()) || (expectedType.isArray())) && (!foundType.isEqual(expectedType))) {
-                                    isSuitableMethod = false;
-                                    break;
-                                }
-
-                                if ((expectedType.isClass()) && (!((ClassType) expectedType).isSubclassOf((ClassType) foundType))) {
-                                    isSuitableMethod = false;
-                                    break;
-                                }
+                        if (expectedType.isNil()) {
+                            if ((!foundType.isArray()) && (!foundType.isClass())) {
+                                isSuitableMethod = false;
+                                break;
                             }
-                        }
+                        } else {
+                            if (((expectedType.isInt()) || (expectedType.isChar()) || (expectedType.isBool()) || (expectedType.isArray())) && (!foundType.isEqual(expectedType))) {
+                                isSuitableMethod = false;
+                                break;
+                            }
 
-                        // If a method exists in base class and has access modifier `public` or `protected`. It can be used in subclasses. Or if the method exists in the current class then everything is OK.
-                        if ((isSuitableMethod) && ((scope == currentClassSymbol) || ((((MethodSymbol) symbol).isPublic()) || (((MethodSymbol) symbol).isProtected())))) {
-                            // Found method may be inherited method or overridden. If method is inherited then need to check formal arguments to prevent clashing of methods.
-                            // If method is overridden then everything is OK. Keep searching of other methods.
-                            if (foundMethodSymbol == null) {
-                                foundMethodSymbol = (MethodSymbol) symbol;
-                            } else {
-                                // Another method with the same formal parameters are found. It is an error.
-                                if (!expectedMethodType.isEqualFormalArguments((MethodType) foundMethodSymbol.getType())) {
-                                    printErrorMessage(expression.getToken(), "Clash of constructors.");
-                                    return Type.Error;
-                                }
+                            if ((expectedType.isClass()) && (!((ClassType) expectedType).isSubclassOf((ClassType) foundType))) {
+                                isSuitableMethod = false;
+                                break;
                             }
                         }
                     }
 
-                    symbol = symbol.getNextSymbol();
+                    if (isSuitableMethod) {
+                        if (foundMethodSymbol == null) {
+                            foundMethodSymbol = (MethodSymbol) symbol;
+                        } else {
+                            // Another constructor with the same formal parameters are found. It is an error.
+                            if (!expectedMethodType.isEqualFormalArguments((MethodType) foundMethodSymbol.getType())) {
+                                printErrorMessage(expression.getToken(), "Clash of constructors.");
+                                return Type.Error;
+                            }
+                        }
+                    }
                 }
-            }
 
-            scope = scope.getEnclosingScope();
+                symbol = symbol.getNextSymbol();
+            }
         }
 
         if (foundMethodSymbol != null) {
-            // Need to check where code calls this method.
+            // Need to check where code calls this constructor.
             if (foundMethodSymbol.isProtected()) {
-                // Only the current class and subclasses have access to protected methods.
+                // Only the current class and subclasses have access to protected constructors.
                 if (!(((ClassClassType) mCurrentClassSymbol.getType()).getClassType().isSubclassOf(((ClassClassType) currentClassSymbol.getType()).getClassType()))) {
                     printErrorMessage(expression.getToken(), "Can not get access to the constructor.");
                     return Type.Error;
@@ -650,7 +640,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
             }
 
             if (foundMethodSymbol.isPrivate()) {
-                // Only the current class has access to private methods.
+                // Only the current class has access to private constructors.
                 if (!((((ClassClassType) currentClassSymbol.getType()).getClassType()).isEqual(((ClassClassType) mCurrentClassSymbol.getType()).getClassType()))) {
                     printErrorMessage(expression.getToken(), "Can not get access to the constructor.");
                     return Type.Error;
