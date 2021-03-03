@@ -1,7 +1,9 @@
 package bee.lang.ast;
 
 import bee.lang.ast.types.BaseType;
+import bee.lang.translate.WrapperIRExpression;
 import bee.lang.visitors.BaseVisitor;
+import bee.lang.visitors.IRTreeVisitor;
 import bee.lang.visitors.TypeVisitor;
 
 public class BoolLiteral extends Expression {
@@ -12,6 +14,10 @@ public class BoolLiteral extends Expression {
         mValue = value;
     }
 
+    public boolean getValue() {
+        return mValue;
+    }
+
     @Override
     public BaseType visit(TypeVisitor visitor) {
         return visitor.visit(this);
@@ -20,6 +26,11 @@ public class BoolLiteral extends Expression {
     @Override
     public void visit(BaseVisitor visitor) {
         visitor.visit(this);
+    }
+
+    @Override
+    public WrapperIRExpression visit(IRTreeVisitor visitor) {
+        return visitor.visit(this);
     }
 
 }

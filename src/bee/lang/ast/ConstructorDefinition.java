@@ -2,7 +2,9 @@ package bee.lang.ast;
 
 import bee.lang.ast.types.BaseType;
 import bee.lang.lexer.Token;
+import bee.lang.translate.WrapperIRExpression;
 import bee.lang.visitors.BaseVisitor;
+import bee.lang.visitors.IRTreeVisitor;
 import bee.lang.visitors.TypeVisitor;
 
 public class ConstructorDefinition extends Statement {
@@ -55,6 +57,11 @@ public class ConstructorDefinition extends Statement {
     @Override
     public void visit(BaseVisitor visitor) {
         visitor.visit(this);
+    }
+
+    @Override
+    public WrapperIRExpression visit(IRTreeVisitor visitor) {
+        return visitor.visit(this);
     }
 
 }

@@ -8,7 +8,7 @@ import java.util.*;
 
 public class ValidatingLoopsVisitor implements BaseVisitor {
 
-    private boolean isInsideOfLoop;
+    private int mCountLoops = 0;
 
     @Override
     public void visit(Add expression) {
@@ -41,14 +41,14 @@ public class ValidatingLoopsVisitor implements BaseVisitor {
 
     @Override
     public void visit(Break statement) {
-        if (!isInsideOfLoop) {
+        if (mCountLoops == 0) {
             printErrorMessage(statement.getToken(), "The keyword `break` is outside of a loop");
         }
     }
 
     @Override
     public void visit(Continue statement) {
-        if (!isInsideOfLoop) {
+        if (mCountLoops == 0) {
             printErrorMessage(statement.getToken(), "The keyword `continue` is outside of a loop");
         }
     }
@@ -78,7 +78,9 @@ public class ValidatingLoopsVisitor implements BaseVisitor {
 
     @Override
     public void visit(DoWhile statement) {
+        mCountLoops++;
         statement.getStatement().visit(this);
+        mCountLoops--;
     }
 
     @Override
@@ -216,9 +218,9 @@ public class ValidatingLoopsVisitor implements BaseVisitor {
 
     @Override
     public void visit(While statement) {
-        isInsideOfLoop = true;
+        mCountLoops++;
         statement.getStatement().visit(this);
-        isInsideOfLoop = false;
+        mCountLoops--;
     }
 
     private void printErrorMessage(Token token, String message) {
