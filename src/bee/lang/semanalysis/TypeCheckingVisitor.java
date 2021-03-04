@@ -15,6 +15,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
     protected ClassSymbol mCurrentClassSymbol;
     protected MethodSymbol mCurrentMethodSymbol;
     protected BaseScope mGlobalScope;
+    private boolean isConst = false;
 
     public TypeCheckingVisitor(BaseScope baseScope) {
         mBaseScope = baseScope;
@@ -100,12 +101,26 @@ public class TypeCheckingVisitor implements TypeVisitor {
                 (!(expression.getLeftExpression() instanceof ArrayAccess)) &&
                 (!(expression.getLeftExpression() instanceof Identifier))) {
             printErrorMessage(expression.getToken(), "Left part of the operator '=' is not lvalue.");
-            return resultType;
+            return Type.Error;
+        }
+
+        if ((expression.getLeftExpression() instanceof FieldAccess) && (isConst)) {
+            isConst = false;
+            FieldAccess fieldAccess = (FieldAccess) expression.getLeftExpression();
+            printErrorMessage(expression.getToken(), "Can not assign a value to constant field '" + fieldAccess.getIdentifier().getName() + "'.");
+            return Type.Error;
+        }
+
+        if ((expression.getLeftExpression() instanceof Identifier) && (isConst)) {
+            isConst = false;
+            Identifier identifier = (Identifier) expression.getLeftExpression();
+            printErrorMessage(expression.getToken(), "Can not assign a value to constant variable '" + identifier.getName() + "'.");
+            return Type.Error;
         }
 
         if (expression.getRightExpression() instanceof Super) {
             printErrorMessage(expression.getToken(), "Right part of the operator '=' is not rvalue.");
-            return resultType;
+            return Type.Error;
         }
 
         if (resultType.isError()) {
@@ -155,7 +170,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
         boolean isStaticExpectedMethod = expressionType.isClassClass();
 
-        ClassSymbol currentClassSymbol = (ClassSymbol) mGlobalScope.getSymbolInCurrentScope((isStaticExpectedMethod ? ((ClassClassType) expressionType).getClassType() : (ClassType) expressionType).getIdentifier().getName());
+        ClassSymbol classSymbol = (ClassSymbol) mGlobalScope.getSymbolInCurrentScope((isStaticExpectedMethod ? ((ClassClassType) expressionType).getClassType() : (ClassType) expressionType).getIdentifier().getName());
 
         MethodType expectedMethodType = new MethodType();
 
@@ -167,7 +182,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
         MethodSymbol foundMethodSymbol = null;
 
-        BaseScope scope = currentClassSymbol;
+        BaseScope scope = classSymbol;
 
         while (scope != null) {
             Symbol symbol = scope.getSymbolInCurrentScope(expression.getIdentifier().getName());
@@ -176,7 +191,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
                 while (symbol != null) {
                     MethodType foundMethodType = (MethodType) symbol.getType();
 
-                    // Expected method and found method must be or must not be static
+                    // Expected method and found method must be or must not be static.
                     if ((isStaticExpectedMethod == ((MethodSymbol) symbol).isStatic()) &&
                             (expectedMethodType.getFormalArgumentTypes().size() == foundMethodType.getFormalArgumentTypes().size())) {
                         Iterator<BaseType> expectedTypesIterator = expectedMethodType.getFormalArgumentTypes().iterator();
@@ -207,8 +222,8 @@ public class TypeCheckingVisitor implements TypeVisitor {
                             }
                         }
 
-                        // If a method exists in base class and has access modifier `public` or `protected`. It can be used in subclasses. Or if the method exists in the current class then everything is OK.
-                        if ((isSuitableMethod) && ((scope == currentClassSymbol) || ((((MethodSymbol) symbol).isPublic()) || (((MethodSymbol) symbol).isProtected())))) {
+                        // If a method exists in base class and has access modifier `public` or `protected` then it can be used in subclasses. Or if the method exists in the current class then everything is OK.
+                        if ((isSuitableMethod) && ((scope == classSymbol) || ((((MethodSymbol) symbol).isPublic()) || (((MethodSymbol) symbol).isProtected())))) {
                             // Found method may be inherited method or overridden. If method is inherited then need to check formal arguments to prevent clashing of methods.
                             // If method is overridden then everything is OK. Keep searching of other methods.
                             if (foundMethodSymbol == null) {
@@ -234,7 +249,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
             // Need to check where code calls this method.
             if (foundMethodSymbol.isProtected()) {
                 // Only the current class and subclasses have access to protected methods.
-                if (!(((ClassClassType) mCurrentClassSymbol.getType()).getClassType().isSubclassOf(((ClassClassType) currentClassSymbol.getType()).getClassType()))) {
+                if (!(((ClassClassType) mCurrentClassSymbol.getType()).getClassType().isSubclassOf(((ClassClassType) classSymbol.getType()).getClassType()))) {
                     printErrorMessage(expression.getIdentifier().getToken(), "Can not get access to the method '" + foundMethodSymbol.getIdentifier().getName() + "'.");
                     return Type.Error;
                 }
@@ -242,7 +257,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
             if (foundMethodSymbol.isPrivate()) {
                 // Only the current class has access to private methods.
-                if (!((((ClassClassType) currentClassSymbol.getType()).getClassType()).isEqual(((ClassClassType) mCurrentClassSymbol.getType()).getClassType()))) {
+                if (!((((ClassClassType) classSymbol.getType()).getClassType()).isEqual(((ClassClassType) mCurrentClassSymbol.getType()).getClassType()))) {
                     printErrorMessage(expression.getIdentifier().getToken(), "Can not get access to the method '" + foundMethodSymbol.getIdentifier().getName() + "'.");
                     return Type.Error;
                 }
@@ -365,19 +380,19 @@ public class TypeCheckingVisitor implements TypeVisitor {
         if ((expressionType.isClass()) || (expressionType.isClassClass())) {
             boolean isStaticField = expressionType.isClassClass();
 
-            ClassSymbol currentClassSymbol = (ClassSymbol) mGlobalScope.getSymbolInCurrentScope(isStaticField ? ((ClassClassType) expressionType).getClassType().getIdentifier().getName() : ((ClassType) expressionType).getIdentifier().getName());
+            ClassSymbol classSymbol = (ClassSymbol) mGlobalScope.getSymbolInCurrentScope((isStaticField ? ((ClassClassType) expressionType).getClassType() : ((ClassType) expressionType)).getIdentifier().getName());
 
-            BaseScope scope = currentClassSymbol;
+            BaseScope scope = classSymbol;
 
             while (scope != null) {
                 Symbol symbol = scope.getSymbolInCurrentScope(expression.getIdentifier().getName());
 
                 // Find a field in the current scope or in the base scope (class). The base scope must have the field with modifiers `public` or `protected`.
-                if ((symbol instanceof FieldSymbol) && (((FieldSymbol) symbol).isStatic() == isStaticField) && ((scope == currentClassSymbol) || ((((FieldSymbol) symbol).isPublic()) || ((FieldSymbol) symbol).isProtected()))) {
+                if ((symbol instanceof FieldSymbol) && (((FieldSymbol) symbol).isStatic() == isStaticField) && ((scope == classSymbol) || ((((FieldSymbol) symbol).isPublic()) || ((FieldSymbol) symbol).isProtected()))) {
                     // Need to check where code get access to this field.
                     if (((FieldSymbol) symbol).isProtected()) {
                         // Only the current class and subclasses have access to protected fields
-                        if (!(((ClassClassType) mCurrentClassSymbol.getType()).getClassType().isSubclassOf(((ClassClassType) currentClassSymbol.getType()).getClassType()))) {
+                        if (!(((ClassClassType) mCurrentClassSymbol.getType()).getClassType().isSubclassOf(((ClassClassType) classSymbol.getType()).getClassType()))) {
                             printErrorMessage(expression.getIdentifier().getToken(), "Can not get access to the field '" + symbol.getIdentifier().getName() + "'.");
                             return Type.Error;
                         }
@@ -385,11 +400,13 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
                     if (((FieldSymbol) symbol).isPrivate()) {
                         // Only the current class has access to private fields
-                        if (!((((ClassClassType) currentClassSymbol.getType()).getClassType()).isEqual(((ClassClassType) mCurrentClassSymbol.getType()).getClassType()))) {
+                        if (!((((ClassClassType) classSymbol.getType()).getClassType()).isEqual(((ClassClassType) mCurrentClassSymbol.getType()).getClassType()))) {
                             printErrorMessage(expression.getIdentifier().getToken(), "Can not get access to the field '" + symbol.getIdentifier().getName() + "'.");
                             return Type.Error;
                         }
                     }
+
+                    isConst = ((FieldSymbol) symbol).isConst();
 
                     return symbol.getType();
                 }
@@ -444,13 +461,17 @@ public class TypeCheckingVisitor implements TypeVisitor {
             Symbol symbol = scope.getSymbolInCurrentScope(expression.getName());
 
             if (symbol instanceof FieldSymbol) {
-                // Find a field in the current scope (class) or in the base scope (class). The base scope must have the field with modifiers `public` or `protected`.
+                // Find a field in the current scope (class) or in the base scope (class). The base scope (class) must have the field with modifiers `public` or `protected`.
                 if ((!((FieldSymbol) symbol).isStatic()) && ((scope == mCurrentClassSymbol) || ((((FieldSymbol) symbol).isPublic()) || ((FieldSymbol) symbol).isProtected()))) {
+                    isConst = ((FieldSymbol) symbol).isConst();
                     return symbol.getType();
                 } else {
                     printErrorMessage(expression.getToken(), "Can not have access to the identifier '" + symbol.getIdentifier().getName() + "'.");
                     break;
                 }
+            } else if (symbol instanceof LocalVariableSymbol) {
+                isConst = ((LocalVariableSymbol) symbol).isConst();
+                return symbol.getType();
             } else {
                 if (symbol != null) {
                     return symbol.getType();
@@ -713,6 +734,19 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(Return statement) {
+        BaseType typeExpression = (statement.getExpression() == null ? Type.Void : statement.getExpression().visit(this));
+
+        if (mCurrentMethodSymbol.isConstructor()) {
+            printErrorMessage(statement.getToken(), "The keyword `return` inside of a constructor is not allowed.");
+            return Type.Error;
+        } else {
+            MethodType methodType = (MethodType) mCurrentMethodSymbol.getType();
+            if (!typeExpression.isEqual(methodType.getReturnType())) {
+                printErrorMessage(statement.getToken(), "Provided type : '" + typeExpression + "', but required type : '" + methodType.getReturnType() + "'.");
+                return Type.Error;
+            }
+        }
+
         return Type.Nothing;
     }
 

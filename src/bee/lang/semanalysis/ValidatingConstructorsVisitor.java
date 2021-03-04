@@ -10,26 +10,20 @@ import java.util.Iterator;
 
 public class ValidatingConstructorsVisitor extends TypeCheckingVisitor {
 
-    private boolean isInsideOfConstructor;
-
     public ValidatingConstructorsVisitor(BaseScope baseScope) {
         super(baseScope);
     }
 
     @Override
     public BaseType visit(ConstructorDefinition statement) {
-        isInsideOfConstructor = true;
-        statement.getBody().visit(this);
-        isInsideOfConstructor = false;
-
-        // Bee does not the root class for all classes by default. If the keyword `super` uses in a constructor of a class without a base class then need to ignore this case and do not find constructors in a base class.
+        // Bee does not have the root class for all classes by default. If the keyword `super` uses in a constructor of a class without a base class then need to ignore this case and do not find constructors in a base class.
         if ((statement.getSuperConstructorArgumentsList() != null) && (!statement.getSuperConstructorArgumentsList().getExpressionList().isEmpty()) && (mCurrentClassSymbol.getBaseClassIdentifier() == null)) {
             printErrorMessage(statement.getToken(), "A class without a base class can not call super-constructor with arguments.");
             return Type.Error;
         }
 
         if ((statement.getSuperConstructorArgumentsList() != null) && (mCurrentClassSymbol.getBaseClassIdentifier() == null)) {
-            return ((ClassClassType) mCurrentClassSymbol.getType()).getClassType();
+            return Type.Nothing;
         }
 
         MethodType expectedMethodType = new MethodType();
@@ -83,7 +77,7 @@ public class ValidatingConstructorsVisitor extends TypeCheckingVisitor {
                         }
                     }
 
-                    // If a method exists in base class and has access modifier `public` or `protected`. It can be used in subclasses. Or if the method exists in the current class then everything is OK.
+                    // If a method exists in base class and has access modifier `public` or `protected` then it can be used in subclasses. Or if the method exists in the current class then everything is OK.
                     if ((isSuitableMethod) && ((scope == mCurrentClassSymbol) || ((((MethodSymbol) symbol).isPublic()) || (((MethodSymbol) symbol).isProtected())))) {
                         // Found method may be inherited method or overridden. If method is inherited then need to check formal arguments to prevent clashing of methods.
                         // If method is overridden then everything is OK. Keep searching of other methods.
@@ -104,21 +98,11 @@ public class ValidatingConstructorsVisitor extends TypeCheckingVisitor {
         }
 
         if (foundMethodSymbol != null) {
-            return ((MethodType) foundMethodSymbol.getType()).getReturnType();
+            return Type.Nothing;
         } else {
             printErrorMessage(statement.getToken(), "Can not find a constructor for such arguments.");
             return Type.Error;
         }
-    }
-
-    @Override
-    public BaseType visit(Return statement) {
-        if (isInsideOfConstructor) {
-            printErrorMessage(statement.getToken(), "The keyword `return` inside of a constructor is not allowed.");
-            return Type.Error;
-        }
-
-        return Type.Nothing;
     }
 
 }

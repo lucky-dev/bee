@@ -10,7 +10,6 @@ import bee.lang.visitors.TypeVisitor;
 public class VariableDefinition extends Statement {
 
     private Token mToken;
-    // TODO Add checking during assigning values to constants
     private boolean isConst;
     private Identifier mIdentifier;
     private BaseType mType;
