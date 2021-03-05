@@ -463,6 +463,11 @@ public class TypeCheckingVisitor implements TypeVisitor {
             if (symbol instanceof FieldSymbol) {
                 // Find a field in the current scope (class) or in the base scope (class). The base scope (class) must have the field with modifiers `public` or `protected`.
                 if ((!((FieldSymbol) symbol).isStatic()) && ((scope == mCurrentClassSymbol) || ((((FieldSymbol) symbol).isPublic()) || ((FieldSymbol) symbol).isProtected()))) {
+                    if (mCurrentMethodSymbol.isStatic()) {
+                        printErrorMessage(expression.getToken(), "Static method '" + mCurrentMethodSymbol.getIdentifier().getName() + "' do not have access to '" + symbol.getIdentifier().getName() + "'.");
+                        break;
+                    }
+
                     isConst = ((FieldSymbol) symbol).isConst();
                     return symbol.getType();
                 } else {
