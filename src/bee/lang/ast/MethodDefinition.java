@@ -1,6 +1,7 @@
 package bee.lang.ast;
 
 import bee.lang.ast.types.BaseType;
+import bee.lang.symtable.Symbol;
 import bee.lang.translate.WrapperIRExpression;
 import bee.lang.visitors.BaseVisitor;
 import bee.lang.visitors.IRTreeVisitor;
@@ -14,6 +15,7 @@ public class MethodDefinition extends Statement {
     private Statements mFormalArgumentsList;
     private BaseType mReturnType;
     private Statements mBody;
+    private Symbol mSymbol;
 
     public MethodDefinition(AccessModifier accessModifier, boolean isStatic, Identifier identifier, Statements formalArgumentsList, BaseType returnType, Statements body) {
         this.isStatic = isStatic;
@@ -46,6 +48,14 @@ public class MethodDefinition extends Statement {
 
     public Statements getBody() {
         return mBody;
+    }
+
+    public Symbol getSymbol() {
+        return mSymbol;
+    }
+
+    public void setSymbol(Symbol symbol) {
+        mSymbol = symbol;
     }
 
     @Override

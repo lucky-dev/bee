@@ -98,6 +98,7 @@ public class ValidatingConstructorsVisitor extends TypeCheckingVisitor {
         }
 
         if (foundMethodSymbol != null) {
+            statement.setOtherConstructorSymbol(foundMethodSymbol);
             return Type.Nothing;
         } else {
             printErrorMessage(statement.getToken(), "Can not find a constructor for such arguments.");

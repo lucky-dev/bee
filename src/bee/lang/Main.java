@@ -5,6 +5,7 @@ import bee.lang.lexer.Lexer;
 import bee.lang.parser.Parser;
 import bee.lang.semanalysis.*;
 import bee.lang.symtable.BaseScope;
+import bee.lang.translate.NewLayoutsVisitor;
 
 public class Main {
 
@@ -22,6 +23,8 @@ public class Main {
         validatingConstructorsVisitor.visit(program);
         ValidatingLoopsVisitor validatingLoopsVisitor = new ValidatingLoopsVisitor();
         validatingLoopsVisitor.visit(program);
+        NewLayoutsVisitor newLayoutsVisitor = new NewLayoutsVisitor(scope, symbolTableVisitor.getSortedListOfClasses());
+        newLayoutsVisitor.visit(program);
     }
 
 }

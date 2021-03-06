@@ -8,6 +8,19 @@ import bee.lang.visitors.IRTreeVisitor;
 
 import java.util.Iterator;
 
+// This visitor converts AST nodes to IR nodes. This visitor uses the class 'WrapperIRExpression'. This class is a base class for other wrapper-classes 'Cx', 'Ex', 'Nx', 'RelCx'.
+// Wrapper-classes are used to convert IR nodes depending on context. E.g. in the code like this:
+//      var x : bool = true;
+//      ...
+//      if (x = someMethod()) { ... }
+// The expression 'x = someMethod()' must return a value (true or false) for the statement 'if'.
+// But in the next code:
+//      var y : bool;
+//      ...
+//      y = someMethod();
+// The statement 'y = someMethod();' must not return any value.
+// So for the first case 'NewIRTreeVisitor' uses the class 'Ex'. For the second case 'NewIRTreeVisitor' uses the class 'Nx'.
+// The classes 'Cx' and 'RelCx' are wrappers for logical expressions like this: x < 5, x != y and etc. These classes use labels (true or false) during converting logical expressions.
 public class NewIRTreeVisitor implements IRTreeVisitor {
 
     private Label mCurrentLblEnd;

@@ -1,6 +1,7 @@
 package bee.lang.ast;
 
 import bee.lang.ast.types.BaseType;
+import bee.lang.symtable.Symbol;
 import bee.lang.translate.WrapperIRExpression;
 import bee.lang.visitors.BaseVisitor;
 import bee.lang.visitors.IRTreeVisitor;
@@ -13,6 +14,7 @@ public class ClassDefinition extends Statement {
     private Statements mConstructorDefinitions;
     private Statements mMethodDefinitions;
     private Statements mFieldDefinitions;
+    private Symbol mSymbol;
 
     public ClassDefinition(Identifier baseClassIdentifier, Identifier classIdentifier, Statements constructorDefinitions, Statements methodDefinitions, Statements fieldDefinitions) {
         mBaseClassIdentifier = baseClassIdentifier;
@@ -40,6 +42,14 @@ public class ClassDefinition extends Statement {
 
     public Statements getFieldDefinitions() {
         return mFieldDefinitions;
+    }
+
+    public Symbol getSymbol() {
+        return mSymbol;
+    }
+
+    public void setSymbol(Symbol symbol) {
+        mSymbol = symbol;
     }
 
     @Override

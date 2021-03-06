@@ -9,15 +9,26 @@ public class LocalVariableSymbol implements Symbol {
     private Identifier mIdentifier;
     private BaseType mType;
     private BaseScope mScope;
+    private String mClassName;
+    private String mMethodName;
+    private int mId;
+    private String mVarId;
 
-    public LocalVariableSymbol(boolean isConst, Identifier identifier, BaseType type) {
+    public LocalVariableSymbol(boolean isConst, Identifier identifier, BaseType type, String className, String methodName, int id) {
         this.isConst = isConst;
         mIdentifier = identifier;
         mType = type;
+        mId = id;
+        mClassName = className;
+        mMethodName = methodName;
     }
 
     public boolean isConst() {
         return isConst;
+    }
+
+    public String getVarId() {
+        return mClassName + "_" + mMethodName + "_localVar_" + mIdentifier.getName() + "_" + mId;
     }
 
     @Override

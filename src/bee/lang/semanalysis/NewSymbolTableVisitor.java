@@ -17,13 +17,22 @@ import java.util.*;
 public class NewSymbolTableVisitor implements BaseVisitor {
 
     private BaseScope mCurrentScope;
+    private ClassSymbol mCurrentClassSymbol;
+    private MethodSymbol mCurrentMethodSymbol;
+    private int mCountVars;
+    private LinkedList<String> mSortedListOfClasses;
 
     public NewSymbolTableVisitor() {
         mCurrentScope = new GlobalScope(null);
+        mSortedListOfClasses = new LinkedList<>();
     }
 
     public BaseScope getCurrentScope() {
         return mCurrentScope;
+    }
+
+    public LinkedList<String> getSortedListOfClasses() {
+        return mSortedListOfClasses;
     }
 
     @Override
@@ -102,17 +111,23 @@ public class NewSymbolTableVisitor implements BaseVisitor {
                 baseScope = (ClassSymbol) mCurrentScope.getSymbolInCurrentScope(statement.getBaseClassIdentifier().getName());
             }
 
-            ClassSymbol classSymbol = new ClassSymbol(statement.getClassIdentifier(), statement.getBaseClassIdentifier(), baseScope);
+            ClassSymbol newClassSymbol = new ClassSymbol(statement.getClassIdentifier(), statement.getBaseClassIdentifier(), baseScope);
 
-            mCurrentScope.put(classSymbol);
+            mCurrentScope.put(newClassSymbol);
 
-            mCurrentScope = classSymbol;
+            statement.setSymbol(newClassSymbol);
+
+            mCurrentScope = newClassSymbol;
+
+            mCurrentClassSymbol = newClassSymbol;
 
             statement.getFieldDefinitions().visit(this);
             statement.getConstructorDefinitions().visit(this);
             statement.getMethodDefinitions().visit(this);
 
-            mCurrentScope = classSymbol.getScope();
+            mCurrentClassSymbol = null;
+
+            mCurrentScope = newClassSymbol.getScope();
         } else {
             printErrorMessage(statement.getClassIdentifier().getToken(), "Class '" + statement.getClassIdentifier().getName() + "' is already defined.");
         }
@@ -120,7 +135,7 @@ public class NewSymbolTableVisitor implements BaseVisitor {
 
     @Override
     public void visit(ConstructorDefinition statement) {
-        MethodSymbol newSymbolMethod = new MethodSymbol(statement.getAccessModifier(), false, null, mCurrentScope);
+        MethodSymbol newMethodSymbol = new MethodSymbol(statement.getAccessModifier(), false, null, mCurrentScope, mCurrentClassSymbol.getIdentifier().getName(), "constructor");
 
         MethodType methodType = new MethodType();
 
@@ -133,15 +148,23 @@ public class NewSymbolTableVisitor implements BaseVisitor {
 
         methodType.addReturnType(Type.Class(((ClassSymbol) mCurrentScope).getIdentifier()));
 
-        newSymbolMethod.setType(methodType);
+        newMethodSymbol.setType(methodType);
 
-        newSymbolMethod.setNextSymbol(mCurrentScope.getSymbolInCurrentScope("constructor"));
-        mCurrentScope.put("constructor", newSymbolMethod);
+        newMethodSymbol.setNextSymbol(mCurrentScope.getSymbolInCurrentScope("constructor"));
+        mCurrentScope.put("constructor", newMethodSymbol);
 
-        mCurrentScope = newSymbolMethod;
+        statement.setSymbol(newMethodSymbol);
+
+        mCurrentScope = newMethodSymbol;
+
+        mCurrentMethodSymbol = newMethodSymbol;
+
+        mCountVars = 0;
 
         statement.getFormalArgumentsList().visit(this);
         statement.getBody().visit(this);
+
+        mCurrentMethodSymbol = null;
 
         mCurrentScope = mCurrentScope.getEnclosingScope();
     }
@@ -176,7 +199,7 @@ public class NewSymbolTableVisitor implements BaseVisitor {
         Symbol symbol = mCurrentScope.getSymbolInCurrentScope(variableDefinition.getIdentifier().getName());
 
         if (symbol == null) {
-            mCurrentScope.put(new FieldSymbol(statement.getAccessModifier(), statement.isStatic(), variableDefinition.isConst(), variableDefinition.getIdentifier(), variableDefinition.getType()));
+            mCurrentScope.put(new FieldSymbol(statement.getAccessModifier(), statement.isStatic(), variableDefinition.isConst(), variableDefinition.getIdentifier(), variableDefinition.getType(), mCurrentClassSymbol.getIdentifier().getName()));
         } else {
             printErrorMessage(statement.getVariableDefinition().getIdentifier().getToken(), mCurrentScope.getScopeName() + " already has the identifier '" + statement.getVariableDefinition().getIdentifier().getName() + "'.");
         }
@@ -235,7 +258,7 @@ public class NewSymbolTableVisitor implements BaseVisitor {
             return;
         }
 
-        MethodSymbol newSymbolMethod = new MethodSymbol(statement.getAccessModifier(), statement.isStatic(), statement.getIdentifier(), mCurrentScope);
+        MethodSymbol newMethodSymbol = new MethodSymbol(statement.getAccessModifier(), statement.isStatic(), statement.getIdentifier(), mCurrentScope, mCurrentClassSymbol.getIdentifier().getName(), statement.getIdentifier().getName());
 
         MethodType methodType = new MethodType();
 
@@ -247,15 +270,23 @@ public class NewSymbolTableVisitor implements BaseVisitor {
 
         methodType.addReturnType(statement.getReturnType());
 
-        newSymbolMethod.setType(methodType);
+        newMethodSymbol.setType(methodType);
 
-        newSymbolMethod.setNextSymbol(mCurrentScope.getSymbolInCurrentScope(statement.getIdentifier().getName()));
-        mCurrentScope.put(newSymbolMethod);
+        newMethodSymbol.setNextSymbol(mCurrentScope.getSymbolInCurrentScope(statement.getIdentifier().getName()));
+        mCurrentScope.put(newMethodSymbol);
 
-        mCurrentScope = newSymbolMethod;
+        statement.setSymbol(newMethodSymbol);
+
+        mCurrentScope = newMethodSymbol;
+
+        mCurrentMethodSymbol = newMethodSymbol;
+
+        mCountVars = 0;
 
         statement.getFormalArgumentsList().visit(this);
         statement.getBody().visit(this);
+
+        mCurrentMethodSymbol = null;
 
         mCurrentScope = mCurrentScope.getEnclosingScope();
     }
@@ -354,7 +385,7 @@ public class NewSymbolTableVisitor implements BaseVisitor {
 
                 String baseClassName = classDefinition.getBaseClassIdentifier().getName();
 
-                if (!classIds.containsKey(className)) {
+                if (!classIds.containsKey(baseClassName)) {
                     classIds.put(baseClassName, classId);
                     invertedClassIds.put(classId, baseClassName);
                     classId++;
@@ -386,7 +417,12 @@ public class NewSymbolTableVisitor implements BaseVisitor {
             Iterator<Integer> iteratorClassIds = sortedClassIds.iterator();
 
             while (iteratorClassIds.hasNext()) {
-                allClasses.get(invertedClassIds.get(iteratorClassIds.next())).visit(this);
+                mSortedListOfClasses.add(invertedClassIds.get(iteratorClassIds.next()));
+            }
+
+            Iterator<String> sortedListOfClasses = mSortedListOfClasses.iterator();
+            while (sortedListOfClasses.hasNext()) {
+                allClasses.get(sortedListOfClasses.next()).visit(this);
             }
         } else {
             printErrorMessage(null, "There is a cycle in inherited classes.");
@@ -474,7 +510,7 @@ public class NewSymbolTableVisitor implements BaseVisitor {
         Symbol symbol = mCurrentScope.getSymbolInCurrentScope(statement.getIdentifier().getName());
 
         if (symbol == null) {
-            mCurrentScope.put(new LocalVariableSymbol(statement.isConst(), statement.getIdentifier(), statement.getType()));
+            mCurrentScope.put(new LocalVariableSymbol(statement.isConst(), statement.getIdentifier(), statement.getType(), mCurrentClassSymbol.getIdentifier().getName(), mCurrentMethodSymbol.getIdentifier() == null ? "constructor" : mCurrentMethodSymbol.getIdentifier().getName(), mCountVars++));
         } else {
             printErrorMessage(statement.getIdentifier().getToken(), mCurrentScope.getScopeName() + "' already has the identifier '" + statement.getIdentifier().getName() + "'.");
         }

@@ -1,6 +1,7 @@
 package bee.lang.ast;
 
 import bee.lang.ast.types.BaseType;
+import bee.lang.symtable.Symbol;
 import bee.lang.translate.WrapperIRExpression;
 import bee.lang.visitors.BaseVisitor;
 import bee.lang.visitors.IRTreeVisitor;
@@ -11,6 +12,7 @@ public class Call extends Expression {
     private Expression mExpression;
     private Identifier mIdentifier;
     private ArgumentsList mArgumentsList;
+    private Symbol mSymbol;
 
     public Call(Expression expression, Identifier identifier, ArgumentsList argumentsList) {
         mExpression = expression;
@@ -28,6 +30,14 @@ public class Call extends Expression {
 
     public ArgumentsList getArgumentsList() {
         return mArgumentsList;
+    }
+
+    public void setSymbol(Symbol symbol) {
+        mSymbol = symbol;
+    }
+
+    public Symbol getSymbol() {
+        return mSymbol;
     }
 
     @Override

@@ -1,6 +1,7 @@
 package bee.lang.ast;
 
 import bee.lang.ast.types.BaseType;
+import bee.lang.symtable.Symbol;
 import bee.lang.translate.WrapperIRExpression;
 import bee.lang.visitors.BaseVisitor;
 import bee.lang.visitors.IRTreeVisitor;
@@ -10,6 +11,7 @@ public class FieldAccess extends Expression {
 
     private Expression mExpression;
     private Identifier mIdentifier;
+    private Symbol mSymbol;
 
     public FieldAccess(Expression expression, Identifier identifier) {
         mExpression = expression;
@@ -22,6 +24,14 @@ public class FieldAccess extends Expression {
 
     public Identifier getIdentifier() {
         return mIdentifier;
+    }
+
+    public void setSymbol(Symbol symbol) {
+        mSymbol = symbol;
+    }
+
+    public Symbol getSymbol() {
+        return mSymbol;
     }
 
     @Override

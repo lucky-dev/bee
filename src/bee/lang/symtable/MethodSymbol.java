@@ -12,12 +12,18 @@ public class MethodSymbol extends BaseScope implements Symbol {
     private BaseType mType;
     private BaseScope mScope;
     private Symbol mNextSymbol;
+    private int mId;
+    private String mClassName;
+    private String mMethodName;
 
-    public MethodSymbol(AccessModifier accessModifier, boolean isStatic, Identifier identifier, BaseScope enclosingScope) {
+    public MethodSymbol(AccessModifier accessModifier, boolean isStatic, Identifier identifier, BaseScope enclosingScope, String className, String methodName) {
         super(enclosingScope, enclosingScope.getScopeName() + "." + (identifier == null ? "constructor" : identifier.getName()));
         mAccessModifier = accessModifier;
         this.isStatic = isStatic;
         mIdentifier = identifier;
+        mId = 0;
+        mClassName = className;
+        mMethodName = methodName;
     }
 
     public AccessModifier getAccessModifier() {
@@ -38,6 +44,10 @@ public class MethodSymbol extends BaseScope implements Symbol {
 
     public boolean isConstructor() {
         return mIdentifier == null;
+    }
+
+    public String getMethodId() {
+        return mClassName + "_method_" + mMethodName + "_" + mId + "";
     }
 
     @Override
@@ -77,6 +87,10 @@ public class MethodSymbol extends BaseScope implements Symbol {
     @Override
     public void setNextSymbol(Symbol nextSymbol) {
         mNextSymbol = nextSymbol;
+
+        if (mNextSymbol != null) {
+            mId = ((MethodSymbol) mNextSymbol).mId + 1;
+        }
     }
 
 }

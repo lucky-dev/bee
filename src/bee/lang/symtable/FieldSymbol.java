@@ -12,13 +12,15 @@ public class FieldSymbol implements Symbol {
     private Identifier mIdentifier;
     private BaseType mType;
     private BaseScope mScope;
+    private String mClassName;
 
-    public FieldSymbol(AccessModifier accessModifier, boolean isStatic, boolean isConst, Identifier identifier, BaseType type) {
+    public FieldSymbol(AccessModifier accessModifier, boolean isStatic, boolean isConst, Identifier identifier, BaseType type, String className) {
         mAccessModifier = accessModifier;
         this.isStatic = isStatic;
         this.isConst = isConst;
         mIdentifier = identifier;
         mType = type;
+        mClassName = className;
     }
 
     public AccessModifier getAccessModifier() {
@@ -43,6 +45,10 @@ public class FieldSymbol implements Symbol {
 
     public boolean isConst() {
         return isConst;
+    }
+
+    public String getFieldId() {
+        return mClassName + "_field_" + mIdentifier.getName();
     }
 
     @Override

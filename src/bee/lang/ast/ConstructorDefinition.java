@@ -2,6 +2,7 @@ package bee.lang.ast;
 
 import bee.lang.ast.types.BaseType;
 import bee.lang.lexer.Token;
+import bee.lang.symtable.Symbol;
 import bee.lang.translate.WrapperIRExpression;
 import bee.lang.visitors.BaseVisitor;
 import bee.lang.visitors.IRTreeVisitor;
@@ -15,6 +16,8 @@ public class ConstructorDefinition extends Statement {
     private ArgumentsList mSuperConstructorArgumentsList;
     private ArgumentsList mOtherConstructorArgumentsList;
     private Statements mBody;
+    private Symbol mSymbol;
+    private Symbol mOtherConstructorSymbol;
 
     public ConstructorDefinition(Token token, AccessModifier accessModifier, Statements formalArgumentsList, ArgumentsList superConstructorArgumentsList, ArgumentsList otherConstructorArgumentsList, Statements body) {
         mToken = token;
@@ -47,6 +50,22 @@ public class ConstructorDefinition extends Statement {
 
     public Statements getBody() {
         return mBody;
+    }
+
+    public Symbol getSymbol() {
+        return mSymbol;
+    }
+
+    public void setSymbol(Symbol symbol) {
+        mSymbol = symbol;
+    }
+
+    public Symbol getOtherConstructorSymbol() {
+        return mOtherConstructorSymbol;
+    }
+
+    public void setOtherConstructorSymbol(Symbol otherConstructorSymbol) {
+        mOtherConstructorSymbol = otherConstructorSymbol;
     }
 
     @Override

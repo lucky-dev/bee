@@ -15,12 +15,13 @@ public class TypeCheckingVisitor implements TypeVisitor {
     protected ClassSymbol mCurrentClassSymbol;
     protected MethodSymbol mCurrentMethodSymbol;
     protected BaseScope mGlobalScope;
-    private boolean isConst = false;
+    private boolean isConst;
 
     public TypeCheckingVisitor(BaseScope baseScope) {
         mBaseScope = baseScope;
         mCurrentScope = baseScope;
         mGlobalScope = baseScope;
+        isConst = false;
     }
 
     @Override
@@ -263,6 +264,8 @@ public class TypeCheckingVisitor implements TypeVisitor {
                 }
             }
 
+            expression.setSymbol(foundMethodSymbol);
+
             return ((MethodType) foundMethodSymbol.getType()).getReturnType();
         } else {
             printErrorMessage(expression.getIdentifier().getToken(), "Can not find a method '" + expression.getIdentifier().getName() + "' for such arguments.");
@@ -277,7 +280,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(ClassDefinition statement) {
-        mCurrentClassSymbol = (ClassSymbol) mBaseScope.getSymbolInCurrentScope(statement.getClassIdentifier().getName());
+        mCurrentClassSymbol = (ClassSymbol) statement.getSymbol();
 
         mCurrentScope = mCurrentClassSymbol;
 
@@ -294,36 +297,9 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(ConstructorDefinition statement) {
-        MethodType constructorType = new MethodType();
+        mCurrentMethodSymbol = (MethodSymbol) statement.getSymbol();
 
-        Iterator<Statement> iterator = statement.getFormalArgumentsList().getStatementsList().iterator();
-
-        while (iterator.hasNext()) {
-            VariableDefinition variableDefinition = (VariableDefinition) iterator.next();
-            constructorType.addFormalArgumentType(variableDefinition.getType());
-        }
-
-        constructorType.addReturnType(Type.Class(((ClassSymbol) mCurrentScope).getIdentifier()));
-
-        Symbol symbol = mCurrentScope.getSymbolInCurrentScope("constructor");
-
-        MethodSymbol currentConstructor = null;
-
-        Symbol constructor = symbol;
-
-        while (constructor != null) {
-            if ((statement.getAccessModifier() == ((MethodSymbol) constructor).getAccessModifier()) &&
-                    (constructorType.isEqual(constructor.getType()))) {
-                currentConstructor = (MethodSymbol) constructor;
-                break;
-            }
-
-            constructor = constructor.getNextSymbol();
-        }
-
-        mCurrentScope = currentConstructor;
-
-        mCurrentMethodSymbol = currentConstructor;
+        mCurrentScope = mCurrentMethodSymbol;
 
         statement.getBody().visit(this);
 
@@ -388,27 +364,33 @@ public class TypeCheckingVisitor implements TypeVisitor {
                 Symbol symbol = scope.getSymbolInCurrentScope(expression.getIdentifier().getName());
 
                 // Find a field in the current scope or in the base scope (class). The base scope must have the field with modifiers `public` or `protected`.
-                if ((symbol instanceof FieldSymbol) && (((FieldSymbol) symbol).isStatic() == isStaticField) && ((scope == classSymbol) || ((((FieldSymbol) symbol).isPublic()) || ((FieldSymbol) symbol).isProtected()))) {
-                    // Need to check where code get access to this field.
-                    if (((FieldSymbol) symbol).isProtected()) {
-                        // Only the current class and subclasses have access to protected fields
-                        if (!(((ClassClassType) mCurrentClassSymbol.getType()).getClassType().isSubclassOf(((ClassClassType) classSymbol.getType()).getClassType()))) {
-                            printErrorMessage(expression.getIdentifier().getToken(), "Can not get access to the field '" + symbol.getIdentifier().getName() + "'.");
-                            return Type.Error;
+                if (symbol instanceof FieldSymbol) {
+                    FieldSymbol fieldSymbol = (FieldSymbol) symbol;
+
+                    if ((fieldSymbol.isStatic() == isStaticField) && ((scope == classSymbol) || ((fieldSymbol.isPublic()) || fieldSymbol.isProtected()))) {
+                        // Need to check where code get access to this field.
+                        if (fieldSymbol.isProtected()) {
+                            // Only the current class and subclasses have access to protected fields
+                            if (!(((ClassClassType) mCurrentClassSymbol.getType()).getClassType().isSubclassOf(((ClassClassType) classSymbol.getType()).getClassType()))) {
+                                printErrorMessage(expression.getIdentifier().getToken(), "Can not get access to the field '" + symbol.getIdentifier().getName() + "'.");
+                                return Type.Error;
+                            }
                         }
-                    }
 
-                    if (((FieldSymbol) symbol).isPrivate()) {
-                        // Only the current class has access to private fields
-                        if (!((((ClassClassType) classSymbol.getType()).getClassType()).isEqual(((ClassClassType) mCurrentClassSymbol.getType()).getClassType()))) {
-                            printErrorMessage(expression.getIdentifier().getToken(), "Can not get access to the field '" + symbol.getIdentifier().getName() + "'.");
-                            return Type.Error;
+                        if (fieldSymbol.isPrivate()) {
+                            // Only the current class has access to private fields
+                            if (!((((ClassClassType) classSymbol.getType()).getClassType()).isEqual(((ClassClassType) mCurrentClassSymbol.getType()).getClassType()))) {
+                                printErrorMessage(expression.getIdentifier().getToken(), "Can not get access to the field '" + symbol.getIdentifier().getName() + "'.");
+                                return Type.Error;
+                            }
                         }
+
+                        isConst = fieldSymbol.isConst();
+
+                        expression.setSymbol(fieldSymbol);
+
+                        return symbol.getType();
                     }
-
-                    isConst = ((FieldSymbol) symbol).isConst();
-
-                    return symbol.getType();
                 }
 
                 scope = scope.getEnclosingScope();
@@ -462,13 +444,18 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
             if (symbol instanceof FieldSymbol) {
                 // Find a field in the current scope (class) or in the base scope (class). The base scope (class) must have the field with modifiers `public` or `protected`.
-                if ((!((FieldSymbol) symbol).isStatic()) && ((scope == mCurrentClassSymbol) || ((((FieldSymbol) symbol).isPublic()) || ((FieldSymbol) symbol).isProtected()))) {
+                FieldSymbol fieldSymbol = (FieldSymbol) symbol;
+
+                if ((!fieldSymbol.isStatic()) && ((scope == mCurrentClassSymbol) || ((fieldSymbol.isPublic()) || fieldSymbol.isProtected()))) {
                     if (mCurrentMethodSymbol.isStatic()) {
                         printErrorMessage(expression.getToken(), "Static method '" + mCurrentMethodSymbol.getIdentifier().getName() + "' do not have access to '" + symbol.getIdentifier().getName() + "'.");
                         break;
                     }
 
-                    isConst = ((FieldSymbol) symbol).isConst();
+                    isConst = fieldSymbol.isConst();
+
+                    expression.setSymbol(fieldSymbol);
+
                     return symbol.getType();
                 } else {
                     printErrorMessage(expression.getToken(), "Can not have access to the identifier '" + symbol.getIdentifier().getName() + "'.");
@@ -476,6 +463,9 @@ public class TypeCheckingVisitor implements TypeVisitor {
                 }
             } else if (symbol instanceof LocalVariableSymbol) {
                 isConst = ((LocalVariableSymbol) symbol).isConst();
+
+                expression.setSymbol(symbol);
+
                 return symbol.getType();
             } else {
                 if (symbol != null) {
@@ -529,35 +519,9 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(MethodDefinition statement) {
-        MethodType methodType = new MethodType();
+        mCurrentMethodSymbol = (MethodSymbol) statement.getSymbol();
 
-        Iterator<Statement> iterator = statement.getFormalArgumentsList().getStatementsList().iterator();
-
-        while (iterator.hasNext()) {
-            VariableDefinition variableDefinition = (VariableDefinition) iterator.next();
-            methodType.addFormalArgumentType(variableDefinition.getType());
-        }
-
-        methodType.addReturnType(statement.getReturnType());
-
-        MethodSymbol currentMethod = null;
-
-        Symbol method = mCurrentScope.getSymbolInCurrentScope(statement.getIdentifier().getName());
-
-        while (method != null) {
-            if ((statement.getAccessModifier() == ((MethodSymbol) method).getAccessModifier()) &&
-                    (statement.isStatic() == ((MethodSymbol) method).isStatic()) &&
-                    (methodType.isEqual(method.getType()))) {
-                currentMethod = (MethodSymbol) method;
-                break;
-            }
-
-            method = method.getNextSymbol();
-        }
-
-        mCurrentScope = currentMethod;
-
-        mCurrentMethodSymbol = currentMethod;
+        mCurrentScope = mCurrentMethodSymbol;
 
         statement.getBody().visit(this);
 
@@ -672,6 +636,8 @@ public class TypeCheckingVisitor implements TypeVisitor {
                     return Type.Error;
                 }
             }
+
+            expression.setSymbol(foundMethodSymbol);
 
             return ((MethodType) foundMethodSymbol.getType()).getReturnType();
         } else {
