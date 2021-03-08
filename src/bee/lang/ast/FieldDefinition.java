@@ -2,6 +2,7 @@ package bee.lang.ast;
 
 import bee.lang.ast.types.BaseType;
 import bee.lang.lexer.Token;
+import bee.lang.symtable.Symbol;
 import bee.lang.translate.WrapperIRExpression;
 import bee.lang.visitors.BaseVisitor;
 import bee.lang.visitors.IRTreeVisitor;
@@ -13,6 +14,7 @@ public class FieldDefinition extends Statement {
     private AccessModifier mAccessModifier;
     private boolean isStatic;
     private VariableDefinition mVariableDefinition;
+    private Symbol mSymbol;
 
     public FieldDefinition(Token token, AccessModifier accessModifier, boolean isStatic, VariableDefinition variableDefinition) {
         mToken = token;
@@ -35,6 +37,14 @@ public class FieldDefinition extends Statement {
 
     public VariableDefinition getVariableDefinition() {
         return mVariableDefinition;
+    }
+
+    public Symbol getSymbol() {
+        return mSymbol;
+    }
+
+    public void setSymbol(Symbol symbol) {
+        mSymbol = symbol;
     }
 
     @Override

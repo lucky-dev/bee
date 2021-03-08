@@ -75,37 +75,9 @@ public class ValidatingMethodsVisitor implements BaseVisitor {
 
     @Override
     public void visit(ConstructorDefinition statement) {
-        // Create a new method type
-        MethodType constructorType = new MethodType();
+        Symbol currentConstructor = statement.getSymbol();
 
-        Iterator<Statement> iterator = statement.getFormalArgumentsList().getStatementsList().iterator();
-
-        while (iterator.hasNext()) {
-            VariableDefinition variableDefinition = (VariableDefinition) iterator.next();
-            constructorType.addFormalArgumentType(variableDefinition.getType());
-        }
-
-        constructorType.addReturnType(Type.Class(((ClassSymbol) mCurrentScope).getIdentifier()));
-
-        // Find constructor (method) in the current class
-        Symbol symbol = mCurrentScope.getSymbolInCurrentScope("constructor");
-
-        Symbol currentConstructor = null;
-
-        Symbol constructor = symbol;
-
-        // The symbol table was created at the previous stage. Find a constructor which corresponds to the visited constructor.
-        while (constructor != null) {
-            if ((statement.getAccessModifier() == ((MethodSymbol) constructor).getAccessModifier()) &&
-                    (constructorType.isEqual(constructor.getType()))) {
-                currentConstructor = constructor;
-                break;
-            }
-
-            constructor = constructor.getNextSymbol();
-        }
-
-        constructor = symbol;
+        Symbol constructor = mCurrentScope.getSymbolInCurrentScope("constructor");
 
         // Try to find a constructor with the same signature in the current class. Ignore the current constructor.
         while (constructor != null) {
@@ -170,56 +142,30 @@ public class ValidatingMethodsVisitor implements BaseVisitor {
 
     @Override
     public void visit(MethodDefinition statement) {
-        // Create a new method type.
-        MethodType methodType = new MethodType();
-
-        Iterator<Statement> iterator = statement.getFormalArgumentsList().getStatementsList().iterator();
-
-        while (iterator.hasNext()) {
-            methodType.addFormalArgumentType(((VariableDefinition) iterator.next()).getType());
-        }
-
-        methodType.addReturnType(statement.getReturnType());
-
-        Symbol symbol = mCurrentScope.getSymbolInCurrentScope(statement.getIdentifier().getName());
-
-        MethodSymbol currentMethod = null;
-
-        // Try to find a method which corresponds to the visited method.
-        while (symbol != null) {
-            if ((statement.getAccessModifier() == ((MethodSymbol) symbol).getAccessModifier()) &&
-                    ((statement.isStatic() == ((MethodSymbol) symbol).isStatic())) &&
-                    (methodType.isEqual(symbol.getType()))) {
-                currentMethod = (MethodSymbol) symbol;
-                break;
-            }
-
-            symbol = symbol.getNextSymbol();
-        }
+        MethodSymbol currentMethod = (MethodSymbol) statement.getSymbol();
 
         BaseScope scope = mCurrentScope;
+
+        Symbol symbol;
 
         // Scan all classes (scopes) in hierarchy.
         while (scope != null) {
             symbol = scope.getSymbolInCurrentScope(statement.getIdentifier().getName());
 
-            // Ignore fields with the same name.
             if (symbol instanceof MethodSymbol) {
                 MethodSymbol foundMethodSymbol = null;
 
-                Symbol currentSymbol = symbol;
-
                 // Try to find a method in a class. Check only formal arguments. Ignore return type.
-                while (currentSymbol != null) {
+                while (symbol != null) {
                     // Skip the current method
                     if ((currentMethod != symbol) &&
                             (((MethodSymbol) symbol).isStatic() == statement.isStatic()) &&
-                            (((MethodType) currentMethod.getType()).isEqualFormalArguments((MethodType) currentSymbol.getType()))) {
-                        foundMethodSymbol = (MethodSymbol) currentSymbol;
+                            (((MethodType) currentMethod.getType()).isEqualFormalArguments((MethodType) symbol.getType()))) {
+                        foundMethodSymbol = (MethodSymbol) symbol;
                         break;
                     }
 
-                    currentSymbol = currentSymbol.getNextSymbol();
+                    symbol = symbol.getNextSymbol();
                 }
 
                 if (foundMethodSymbol != null) {

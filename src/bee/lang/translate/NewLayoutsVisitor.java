@@ -1,6 +1,7 @@
 package bee.lang.translate;
 
 import bee.lang.ast.*;
+import bee.lang.ast.types.MethodType;
 import bee.lang.symtable.*;
 import bee.lang.visitors.BaseVisitor;
 
@@ -12,10 +13,19 @@ public class NewLayoutsVisitor implements BaseVisitor {
     private ClassSymbol mCurrentClassSymbol;
     private MethodSymbol mCurrentMethodSymbol;
     private LinkedList<String> mSortedListOfClasses;
+    private HashMap<String, EntityLayout> mObjectLayouts;
+    private HashMap<String, EntityLayout> mClassLayouts;
+    private HashMap<String, EntityLayout> mMethodLayouts;
+    private EntityLayout mObjectLayout;
+    private EntityLayout mClassLayout;
+    private EntityLayout mVirtualTable;
 
     public NewLayoutsVisitor(BaseScope baseScope, LinkedList<String> sortedListOfClasses) {
         mCurrentScope = baseScope;
         mSortedListOfClasses = sortedListOfClasses;
+        mObjectLayouts = new HashMap<>();
+        mClassLayouts = new HashMap<>();
+        mMethodLayouts = new HashMap<>();
     }
 
     @Override
@@ -71,6 +81,30 @@ public class NewLayoutsVisitor implements BaseVisitor {
     public void visit(ClassDefinition statement) {
         mCurrentClassSymbol = (ClassSymbol) statement.getSymbol();
 
+        String className = mCurrentClassSymbol.getIdentifier().getName();
+        String baseClassName = (mCurrentClassSymbol.getBaseClassIdentifier() == null ? null :  mCurrentClassSymbol.getBaseClassIdentifier().getName());
+
+        mObjectLayout = mObjectLayouts.get(className);
+
+        if (mObjectLayout == null) {
+            mObjectLayout = new EntityLayout(mObjectLayouts.get(baseClassName));
+            mObjectLayouts.put(className, mObjectLayout);
+        }
+
+        mClassLayout = mClassLayouts.get(className);
+
+        if (mClassLayout == null) {
+            mClassLayout = new EntityLayout(mClassLayouts.get(baseClassName));
+            mClassLayouts.put(className, mClassLayout);
+        }
+
+        mVirtualTable = mMethodLayouts.get(className);
+
+        if (mVirtualTable == null) {
+            mVirtualTable = new EntityLayout(mMethodLayouts.get(baseClassName));
+            mMethodLayouts.put(className, mVirtualTable);
+        }
+
         mCurrentScope = mCurrentClassSymbol;
 
         statement.getFieldDefinitions().visit(this);
@@ -114,7 +148,11 @@ public class NewLayoutsVisitor implements BaseVisitor {
 
     @Override
     public void visit(FieldDefinition statement) {
-        // TODO Implement this
+        if (statement.isStatic()) {
+            mClassLayout.add(((FieldSymbol) statement.getSymbol()).getFieldId());
+        } else {
+            mObjectLayout.add(((FieldSymbol) statement.getSymbol()).getFieldId());
+        }
     }
 
     @Override
@@ -153,9 +191,47 @@ public class NewLayoutsVisitor implements BaseVisitor {
     public void visit(MethodDefinition statement) {
         mCurrentMethodSymbol = (MethodSymbol) statement.getSymbol();
 
-        // TODO Implement this
-
         mCurrentScope = mCurrentMethodSymbol;
+
+        // The current method must have access modifier `public` or `protected` and must be non-static. In this case this method can be added to a virtual table.
+        if ((!mCurrentMethodSymbol.isPrivate()) && (!mCurrentMethodSymbol.isStatic())) {
+            boolean isMethodOverridden = false;
+
+            BaseScope scope = mCurrentClassSymbol.getEnclosingScope();
+
+            Symbol symbol;
+
+            // Scan all classes (scopes) in hierarchy.
+            while (scope != null) {
+                symbol = scope.getSymbolInCurrentScope(statement.getIdentifier().getName());
+
+                if (symbol instanceof MethodSymbol) {
+                    // Try to find a method in a base class. The method in the base class must be `public` or `protected`, has the same numbers of formal arguments and has the same return type.
+                    while (symbol != null) {
+                        if ((((MethodSymbol) symbol).getAccessModifier() == mCurrentMethodSymbol.getAccessModifier()) &&
+                                (((MethodSymbol) symbol).isStatic() == mCurrentMethodSymbol.isStatic()) &&
+                                (((MethodType) mCurrentMethodSymbol.getType()).isEqualFormalArguments((MethodType) symbol.getType())) &&
+                                (((MethodType) mCurrentMethodSymbol.getType()).getReturnType().isEqual(((MethodType) symbol.getType()).getReturnType()))) {
+                            // Get a virtual table of a base class.
+                            EntityLayout baseVirtualTable = mMethodLayouts.get(((ClassSymbol) scope).getIdentifier().getName());
+                            // Use position of the method in the virtual table of base class for the current method.
+                            mVirtualTable.add(mCurrentMethodSymbol.getMethodId(), baseVirtualTable.get(((MethodSymbol) symbol).getMethodId()));
+                            isMethodOverridden = true;
+                            break;
+                        }
+
+                        symbol = symbol.getNextSymbol();
+                    }
+                }
+
+                scope = scope.getEnclosingScope();
+            }
+
+            // If a method is not found in a base class then add the current method at the end of list.
+            if (!isMethodOverridden) {
+                mVirtualTable.add(mCurrentMethodSymbol.getMethodId());
+            }
+        }
 
         statement.getBody().visit(this);
 
@@ -208,6 +284,8 @@ public class NewLayoutsVisitor implements BaseVisitor {
         while (sortedListOfClassesIterator.hasNext()) {
             allClasses.get(sortedListOfClassesIterator.next()).visit(this);
         }
+
+        System.out.println();
     }
 
     @Override

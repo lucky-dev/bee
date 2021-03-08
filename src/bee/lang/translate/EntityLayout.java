@@ -13,11 +13,15 @@ public class EntityLayout {
     public EntityLayout(EntityLayout previous) {
         mPositionOfObject = new HashMap<>();
         mPrevious = previous;
-        mIndex = (previous == null ? 0 : previous.mIndex + previous.mPositionOfObject.size());
+        mIndex = (previous == null ? 0 : previous.mIndex);
     }
 
     public void add(String key) {
-        mPositionOfObject.put(key, mIndex++);
+        add(key, mIndex++);
+    }
+
+    public void add(String key, int position) {
+        mPositionOfObject.put(key, position);
     }
 
     public int get(String key) {

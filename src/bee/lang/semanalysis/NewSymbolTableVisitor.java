@@ -199,7 +199,9 @@ public class NewSymbolTableVisitor implements BaseVisitor {
         Symbol symbol = mCurrentScope.getSymbolInCurrentScope(variableDefinition.getIdentifier().getName());
 
         if (symbol == null) {
-            mCurrentScope.put(new FieldSymbol(statement.getAccessModifier(), statement.isStatic(), variableDefinition.isConst(), variableDefinition.getIdentifier(), variableDefinition.getType(), mCurrentClassSymbol.getIdentifier().getName()));
+            FieldSymbol fieldSymbol = new FieldSymbol(statement.getAccessModifier(), statement.isStatic(), variableDefinition.isConst(), variableDefinition.getIdentifier(), variableDefinition.getType(), mCurrentClassSymbol.getIdentifier().getName());
+            mCurrentScope.put(fieldSymbol);
+            statement.setSymbol(fieldSymbol);
         } else {
             printErrorMessage(statement.getVariableDefinition().getIdentifier().getToken(), mCurrentScope.getScopeName() + " already has the identifier '" + statement.getVariableDefinition().getIdentifier().getName() + "'.");
         }
