@@ -2,7 +2,7 @@ package bee.lang.ast;
 
 import bee.lang.ast.types.BaseType;
 import bee.lang.lexer.Token;
-import bee.lang.translate.WrapperIRExpression;
+import bee.lang.translate.ir.WrapperIRExpression;
 import bee.lang.visitors.BaseVisitor;
 import bee.lang.visitors.IRTreeVisitor;
 import bee.lang.visitors.TypeVisitor;

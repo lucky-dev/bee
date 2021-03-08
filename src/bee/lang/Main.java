@@ -5,6 +5,8 @@ import bee.lang.lexer.Lexer;
 import bee.lang.parser.Parser;
 import bee.lang.semanalysis.*;
 import bee.lang.symtable.BaseScope;
+import bee.lang.translate.frame.MipsFrame;
+import bee.lang.translate.NewIRTreeVisitor;
 import bee.lang.translate.NewLayoutsVisitor;
 
 public class Main {
@@ -25,6 +27,8 @@ public class Main {
         validatingLoopsVisitor.visit(program);
         NewLayoutsVisitor newLayoutsVisitor = new NewLayoutsVisitor(scope, symbolTableVisitor.getSortedListOfClasses());
         newLayoutsVisitor.visit(program);
+        NewIRTreeVisitor newIRTreeVisitor = new NewIRTreeVisitor(new MipsFrame());
+        newIRTreeVisitor.visit(program);
     }
 
 }

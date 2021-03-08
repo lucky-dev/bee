@@ -757,7 +757,7 @@ public class Parser {
             if (isCurrentToken(TokenType.L_SQ_PAREN)) {
                 match(TokenType.L_SQ_PAREN);
                 ArrayType arrayType = new ArrayType(type);
-                NewArray newArray = new NewArray(type, conditionalExpression(), null);
+                NewArray newArray = new NewArray(arrayType, conditionalExpression(), null);
                 match(TokenType.R_SQ_PAREN);
 
                 while (isCurrentToken(TokenType.L_SQ_PAREN)) {

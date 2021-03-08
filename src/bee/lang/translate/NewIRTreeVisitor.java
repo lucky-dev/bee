@@ -4,9 +4,16 @@ import bee.lang.ast.*;
 import bee.lang.ir.Label;
 import bee.lang.ir.Temp;
 import bee.lang.ir.tree.*;
+import bee.lang.symtable.MethodSymbol;
+import bee.lang.translate.frame.Frame;
+import bee.lang.translate.ir.Ex;
+import bee.lang.translate.ir.Nx;
+import bee.lang.translate.ir.RelCx;
+import bee.lang.translate.ir.WrapperIRExpression;
 import bee.lang.visitors.IRTreeVisitor;
 
 import java.util.Iterator;
+import java.util.LinkedList;
 
 // This visitor converts AST nodes to IR nodes. This visitor uses the class 'WrapperIRExpression'. This class is a base class for other wrapper-classes 'Cx', 'Ex', 'Nx', 'RelCx'.
 // Wrapper-classes are used to convert IR nodes depending on context. E.g. in the code like this:
@@ -25,6 +32,11 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
     private Label mCurrentLblEnd;
     private Label mCurrentLblBeginLoop;
+    private Frame mFrame;
+
+    public NewIRTreeVisitor(Frame frame) {
+        mFrame = frame;
+    }
 
     @Override
     public WrapperIRExpression visit(Add expression) {
@@ -72,17 +84,29 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
     @Override
     public WrapperIRExpression visit(ArrayAccess expression) {
-        return null;
+        WrapperIRExpression arrayExpression = expression.getExpression().visit(this);
+        WrapperIRExpression arrayIndex = expression.getIndex().visit(this);
+
+        return new Ex(new MEM(new BINOP(TypeBinOp.PLUS, new MEM(arrayExpression.unEx()), new BINOP(TypeBinOp.MUL, arrayIndex.unEx(), new CONST(mFrame.getWordSize())))));
     }
 
     @Override
     public WrapperIRExpression visit(Assignment expression) {
-        return null;
+        WrapperIRExpression leftExpression = expression.getLeftExpression().visit(this);
+        WrapperIRExpression rightExpression = expression.getRightExpression().visit(this);
+
+        Temp result = new Temp();
+
+        return new Ex(new ESEQ(
+                new SEQ(new MOVE(new TEMP(result), rightExpression.unEx()),
+                        new MOVE(leftExpression.unEx(), new TEMP(result))),
+                new TEMP(result)
+        ));
     }
 
     @Override
     public WrapperIRExpression visit(AssignmentStatement statement) {
-        return null;
+        return statement.getExpression().visit(this);
     }
 
     @Override
@@ -107,7 +131,24 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
     @Override
     public WrapperIRExpression visit(Call expression) {
-        return null;
+        MethodSymbol methodSymbol = (MethodSymbol) expression.getSymbol();
+
+        LinkedList<IRExpression> args = new LinkedList<>();
+
+        for (Expression expr : expression.getArgumentsList().getExpressionList()) {
+            args.add(expr.visit(this).unEx());
+        }
+
+        if (methodSymbol.isStatic()) {
+            return new Ex(new CALL(new NAME(Label.newLabel(methodSymbol.getMethodId())), args));
+        } else if ((methodSymbol.isPrivate()) || (expression.getExpression() instanceof Super)) {
+            // The first argument is the current object aka 'this'.
+            args.addFirst(expression.visit(this).unEx());
+            return new Ex(new CALL(new NAME(Label.newLabel(methodSymbol.getMethodId())), args));
+        } else {
+            // TODO Implement this
+            return null;
+        }
     }
 
     @Override
@@ -125,6 +166,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
     @Override
     public WrapperIRExpression visit(ConstructorDefinition statement) {
+        // TODO Add code to initialize fields of an object in the constructor with keyword `super`
         statement.getBody().visit(this);
 
         return null;
@@ -421,7 +463,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
     @Override
     public WrapperIRExpression visit(Super expression) {
-        return null;
+        return new Ex(new TEMP(mFrame.getFirstArg()));
     }
 
     @Override
@@ -463,7 +505,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
     @Override
     public WrapperIRExpression visit(This expression) {
-        return null;
+        return new Ex(new TEMP(mFrame.getFirstArg()));
     }
 
     @Override

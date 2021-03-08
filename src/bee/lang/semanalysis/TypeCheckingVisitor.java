@@ -711,10 +711,25 @@ public class TypeCheckingVisitor implements TypeVisitor {
             printErrorMessage(statement.getToken(), "The keyword `return` inside of a constructor is not allowed.");
             return Type.Error;
         } else {
-            MethodType methodType = (MethodType) mCurrentMethodSymbol.getType();
-            if (!typeExpression.isEqual(methodType.getReturnType())) {
-                printErrorMessage(statement.getToken(), "Provided type : '" + typeExpression + "', but required type : '" + methodType.getReturnType() + "'.");
-                return Type.Error;
+            BaseType returnType = ((MethodType) mCurrentMethodSymbol.getType()).getReturnType();
+
+            if (typeExpression.isNil()) {
+                if ((!returnType.isClass()) && (!returnType.isArray())) {
+                    printErrorMessage(statement.getToken(), "The keyword `nil` can not be used with types 'int', 'bool' and 'char'.");
+                    return Type.Error;
+                }
+            } else {
+                if (returnType.isClass()) {
+                    if ((typeExpression.isClass()) && (!((ClassType) typeExpression).isSubclassOf((ClassType) returnType))) {
+                        printErrorMessage(statement.getToken(), "Provided type : '" + typeExpression + "' is not a subclass of required type : '" + returnType + "'.");
+                        return Type.Error;
+                    }
+                } else {
+                    if (!typeExpression.isEqual(returnType)) {
+                        printErrorMessage(statement.getToken(), "Provided type : '" + typeExpression + "', but required type : '" + returnType + "'.");
+                        return Type.Error;
+                    }
+                }
             }
         }
 

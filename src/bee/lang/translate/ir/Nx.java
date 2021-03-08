@@ -1,26 +1,25 @@
-package bee.lang.translate;
+package bee.lang.translate.ir;
 
 import bee.lang.ir.Label;
-import bee.lang.ir.tree.EXP;
 import bee.lang.ir.tree.IRExpression;
 import bee.lang.ir.tree.IRStatement;
 
-public class Ex extends WrapperIRExpression {
+public class Nx extends WrapperIRExpression {
 
-    private IRExpression mExpression;
+    private IRStatement mStatement;
 
-    public Ex(IRExpression expression) {
-        mExpression = expression;
+    public Nx(IRStatement statement) {
+        mStatement = statement;
     }
 
     @Override
     public IRExpression unEx() {
-        return mExpression;
+        return null;
     }
 
     @Override
     public IRStatement unNx() {
-        return new EXP(mExpression);
+        return mStatement;
     }
 
     @Override

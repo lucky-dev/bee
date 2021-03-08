@@ -1,7 +1,7 @@
 package bee.lang.visitors;
 
 import bee.lang.ast.*;
-import bee.lang.translate.WrapperIRExpression;
+import bee.lang.translate.ir.WrapperIRExpression;
 
 public interface IRTreeVisitor {
 

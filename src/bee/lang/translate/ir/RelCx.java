@@ -1,4 +1,4 @@
-package bee.lang.translate;
+package bee.lang.translate.ir;
 
 import bee.lang.ir.Label;
 import bee.lang.ir.tree.CJUMP;
