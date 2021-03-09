@@ -16,6 +16,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
     protected MethodSymbol mCurrentMethodSymbol;
     protected BaseScope mGlobalScope;
     private boolean isConst;
+    private boolean isReturnStatement;
 
     public TypeCheckingVisitor(BaseScope baseScope) {
         mBaseScope = baseScope;
@@ -301,7 +302,14 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
         mCurrentScope = mCurrentMethodSymbol;
 
+        isReturnStatement = false;
+
         statement.getBody().visit(this);
+
+        if (isReturnStatement) {
+            printErrorMessage(statement.getToken(), "The keyword `return` inside of a constructor is not allowed.");
+            return Type.Error;
+        }
 
         mCurrentMethodSymbol = null;
 
@@ -326,6 +334,14 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(DoWhile statement) {
+        BaseType typeConditionalExpression = statement.getExpression().visit(this);
+        if (!typeConditionalExpression.isEqual(Type.Bool)) {
+            printErrorMessage(statement.getToken(), "The statement 'do-while' supports condition of type bool.");
+            return Type.Error;
+        }
+
+        statement.getStatement().visit(this);
+
         return Type.Nothing;
     }
 
@@ -334,8 +350,13 @@ public class TypeCheckingVisitor implements TypeVisitor {
         BaseType typeLeftExpression = expression.getLeftExpression().visit(this);
         BaseType typeRightExpression = expression.getRightExpression().visit(this);
 
-        if (((typeLeftExpression.isInt()) || (typeLeftExpression.isChar()) || (typeLeftExpression.isBool()) || (typeLeftExpression.isArray()) || (typeLeftExpression.isClass())) &&
+        if (((typeLeftExpression.isInt()) || (typeLeftExpression.isChar()) || (typeLeftExpression.isBool())) &&
                 (typeLeftExpression.isEqual(typeRightExpression))) {
+            return Type.Bool;
+        }
+
+        if (((typeLeftExpression.isClass()) && (typeRightExpression.isClass())) ||
+                ((typeLeftExpression.isArray()) && (typeRightExpression.isArray()))) {
             return Type.Bool;
         }
 
@@ -344,7 +365,11 @@ public class TypeCheckingVisitor implements TypeVisitor {
             return Type.Bool;
         }
 
-        printErrorMessage(expression.getToken(), "Operator '==' only accepts operands of type int, char, bool and references to arrays and objects. Both operands must have the same type.");
+        if ((typeLeftExpression.isNil()) && (typeRightExpression.isNil())) {
+            return Type.Bool;
+        }
+
+        printErrorMessage(expression.getToken(), "Operator '==' only accepts operands of type int, char, bool and references to arrays and objects. Both operands must have the same type (operands of reference types must be both arrays or objects).");
 
         return Type.Error;
     }
@@ -481,6 +506,18 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(If statement) {
+        BaseType typeConditionalExpression = statement.getExpression().visit(this);
+        if (!typeConditionalExpression.isEqual(Type.Bool)) {
+            printErrorMessage(statement.getToken(), "The statement 'if' supports condition of type bool.");
+            return Type.Error;
+        }
+
+        statement.getThenStatement().visit(this);
+
+        if (statement.getElseStatement() != null) {
+            statement.getElseStatement().visit(this);
+        }
+
         return Type.Nothing;
     }
 
@@ -523,7 +560,13 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
         mCurrentScope = mCurrentMethodSymbol;
 
+        isReturnStatement = false;
+
         statement.getBody().visit(this);
+
+        if ((!isReturnStatement) && (!((MethodType) mCurrentMethodSymbol.getType()).getReturnType().isEqual(Type.Void))) {
+            printErrorMessage(statement.getIdentifier().getToken(), "Missing the keyword `return`.");
+        }
 
         mCurrentMethodSymbol = null;
 
@@ -669,11 +712,26 @@ public class TypeCheckingVisitor implements TypeVisitor {
         BaseType typeLeftExpression = expression.getLeftExpression().visit(this);
         BaseType typeRightExpression = expression.getRightExpression().visit(this);
 
-        if ((typeLeftExpression.isEqual(typeRightExpression)) && ((typeLeftExpression.isInt() || (typeLeftExpression.isChar())))) {
+        if (((typeLeftExpression.isInt()) || (typeLeftExpression.isChar()) || (typeLeftExpression.isBool())) &&
+                (typeLeftExpression.isEqual(typeRightExpression))) {
             return Type.Bool;
         }
 
-        printErrorMessage(expression.getToken(), "Operator '!=' only accepts operands of type int or char. Both operands must have the same type.");
+        if (((typeLeftExpression.isClass()) && (typeRightExpression.isClass())) ||
+                ((typeLeftExpression.isArray()) && (typeRightExpression.isArray()))) {
+            return Type.Bool;
+        }
+
+        if ((((typeLeftExpression.isClass()) || (typeLeftExpression.isArray())) && (typeRightExpression.isNil())) ||
+                ((typeLeftExpression.isNil()) && ((typeRightExpression.isClass()) || (typeRightExpression.isArray())))) {
+            return Type.Bool;
+        }
+
+        if ((typeLeftExpression.isNil()) && (typeRightExpression.isNil())) {
+            return Type.Bool;
+        }
+
+        printErrorMessage(expression.getToken(), "Operator '!=' only accepts operands of type int, char, bool and references to arrays and objects. Both operands must have the same type (operands of reference types must be both arrays or objects).");
 
         return Type.Error;
     }
@@ -705,31 +763,31 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(Return statement) {
+        isReturnStatement = true;
+
         BaseType typeExpression = (statement.getExpression() == null ? Type.Void : statement.getExpression().visit(this));
 
-        if (mCurrentMethodSymbol.isConstructor()) {
-            printErrorMessage(statement.getToken(), "The keyword `return` inside of a constructor is not allowed.");
-            return Type.Error;
-        } else {
-            BaseType returnType = ((MethodType) mCurrentMethodSymbol.getType()).getReturnType();
+        BaseType returnType = ((MethodType) mCurrentMethodSymbol.getType()).getReturnType();
 
-            if (typeExpression.isNil()) {
-                if ((!returnType.isClass()) && (!returnType.isArray())) {
-                    printErrorMessage(statement.getToken(), "The keyword `nil` can not be used with types 'int', 'bool' and 'char'.");
-                    return Type.Error;
-                }
-            } else {
-                if (returnType.isClass()) {
-                    if ((typeExpression.isClass()) && (!((ClassType) typeExpression).isSubclassOf((ClassType) returnType))) {
-                        printErrorMessage(statement.getToken(), "Provided type : '" + typeExpression + "' is not a subclass of required type : '" + returnType + "'.");
-                        return Type.Error;
-                    }
-                } else {
-                    if (!typeExpression.isEqual(returnType)) {
-                        printErrorMessage(statement.getToken(), "Provided type : '" + typeExpression + "', but required type : '" + returnType + "'.");
-                        return Type.Error;
-                    }
-                }
+        if (typeExpression.isNil()) {
+            if ((!returnType.isClass()) && (!returnType.isArray())) {
+                printErrorMessage(statement.getToken(), "The keyword `nil` can not be used with types 'int', 'bool' and 'char'.");
+                return Type.Error;
+            }
+        } else if (typeExpression.isVoid()) {
+            if (!returnType.isVoid()) {
+                printErrorMessage(statement.getToken(), "Method must return a value.");
+                return Type.Error;
+            }
+        } else if (typeExpression.isClass()) {
+            if ((!returnType.isClass()) || (!((ClassType) typeExpression).isSubclassOf((ClassType) returnType))) {
+                printErrorMessage(statement.getToken(), "Provided type : '" + typeExpression + "' is not a subclass of required type : '" + returnType + "'.");
+                return Type.Error;
+            }
+        } else {
+            if (!typeExpression.isEqual(returnType)) {
+                printErrorMessage(statement.getToken(), "Provided type : '" + typeExpression + "', but required type : '" + returnType + "'.");
+                return Type.Error;
             }
         }
 
@@ -890,6 +948,14 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(While statement) {
+        BaseType typeConditionalExpression = statement.getExpression().visit(this);
+        if (!typeConditionalExpression.isEqual(Type.Bool)) {
+            printErrorMessage(statement.getToken(), "The statement 'while' supports condition of type bool.");
+            return Type.Error;
+        }
+
+        statement.getStatement().visit(this);
+
         return Type.Nothing;
     }
 

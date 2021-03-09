@@ -402,6 +402,8 @@ public class Parser {
     }
 
     private Statement ifStatement() throws UnexpectedTokenException {
+        Token token = mToken;
+
         match(TokenType.IF);
 
         match(TokenType.L_PAREN);
@@ -418,10 +420,12 @@ public class Parser {
             elseStatement = statement();
         }
 
-        return new If(expression, thenStatement, elseStatement);
+        return new If(expression, thenStatement, elseStatement, token);
     }
 
     private Statement whileStatement() throws UnexpectedTokenException {
+        Token token = mToken;
+
         match(TokenType.WHILE);
 
         match(TokenType.L_PAREN);
@@ -430,13 +434,15 @@ public class Parser {
 
         match(TokenType.R_PAREN);
 
-        return new While(expression, statement());
+        return new While(expression, statement(), token);
     }
 
     private Statement doWhileStatement() throws UnexpectedTokenException {
         match(TokenType.DO);
 
         Statement statement = statement();
+
+        Token token = mToken;
 
         match(TokenType.WHILE);
 
@@ -448,7 +454,7 @@ public class Parser {
 
         match(TokenType.SEMICOLON);
 
-        return new DoWhile(expression, statement);
+        return new DoWhile(expression, statement, token);
     }
 
     private Statement blockStatement() throws UnexpectedTokenException {

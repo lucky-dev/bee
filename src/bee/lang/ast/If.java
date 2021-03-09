@@ -1,6 +1,7 @@
 package bee.lang.ast;
 
 import bee.lang.ast.types.BaseType;
+import bee.lang.lexer.Token;
 import bee.lang.translate.ir.WrapperIRExpression;
 import bee.lang.visitors.BaseVisitor;
 import bee.lang.visitors.IRTreeVisitor;
@@ -11,11 +12,13 @@ public class If extends Statement {
     private Expression mExpression;
     private Statement mThenStatement;
     private Statement mElseStatement;
+    private Token mToken;
 
-    public If(Expression expression, Statement thenStatement, Statement elseStatement) {
+    public If(Expression expression, Statement thenStatement, Statement elseStatement, Token token) {
         mExpression = expression;
         mThenStatement = thenStatement;
         mElseStatement = elseStatement;
+        mToken = token;
     }
 
     public Expression getExpression() {
@@ -28,6 +31,10 @@ public class If extends Statement {
 
     public Statement getElseStatement() {
         return mElseStatement;
+    }
+
+    public Token getToken() {
+        return mToken;
     }
 
     @Override

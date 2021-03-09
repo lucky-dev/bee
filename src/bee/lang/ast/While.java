@@ -1,6 +1,7 @@
 package bee.lang.ast;
 
 import bee.lang.ast.types.BaseType;
+import bee.lang.lexer.Token;
 import bee.lang.translate.ir.WrapperIRExpression;
 import bee.lang.visitors.BaseVisitor;
 import bee.lang.visitors.IRTreeVisitor;
@@ -10,10 +11,12 @@ public class While extends Statement {
 
     private Expression mExpression;
     private Statement mStatement;
+    private Token mToken;
 
-    public While(Expression expression, Statement statement) {
+    public While(Expression expression, Statement statement, Token token) {
         mExpression = expression;
         mStatement = statement;
+        mToken = token;
     }
 
     public Expression getExpression() {
@@ -22,6 +25,10 @@ public class While extends Statement {
 
     public Statement getStatement() {
         return mStatement;
+    }
+
+    public Token getToken() {
+        return mToken;
     }
 
     @Override
