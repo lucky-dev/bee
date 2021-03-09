@@ -28,16 +28,16 @@ public class NewLayoutsVisitor implements BaseVisitor {
         mMethodLayouts = new HashMap<>();
     }
 
-    public EntityLayout getObjectLayout() {
-        return mObjectLayout;
+    public HashMap<String, EntityLayout> getObjectLayout() {
+        return mObjectLayouts;
     }
 
-    public EntityLayout getClassLayout() {
-        return mClassLayout;
+    public HashMap<String, EntityLayout> getClassLayout() {
+        return mClassLayouts;
     }
 
-    public EntityLayout getVirtualTable() {
-        return mVirtualTable;
+    public HashMap<String, EntityLayout> getVirtualTable() {
+        return mMethodLayouts;
     }
 
     @Override

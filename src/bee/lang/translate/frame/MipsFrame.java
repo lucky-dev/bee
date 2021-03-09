@@ -2,7 +2,9 @@ package bee.lang.translate.frame;
 
 import bee.lang.ir.Label;
 import bee.lang.ir.Temp;
+import bee.lang.ir.tree.*;
 
+import java.util.Iterator;
 import java.util.LinkedList;
 
 // This class is used for working with stack frame (activation record) for a particular platform.
@@ -11,17 +13,18 @@ public class MipsFrame extends Frame {
     private int mOffsetLocals;
     private int mOffsetArgs;
     private Temp mFP;
+    private Temp mRV;
     private Temp mA0;
     private Temp mA1;
     private Temp mA2;
     private Temp mA3;
-    private LinkedList<Access> mFormalArguments;
     private Temp[] mRegArgs;
 
     public MipsFrame() {
-        mOffsetArgs = 0;
+        mOffsetArgs = getWordSize() * 4;
         mOffsetLocals = 0;
         mFP = new Temp();
+        mRV = new Temp();
         mA0 = new Temp();
         mA1 = new Temp();
         mA2 = new Temp();
@@ -30,25 +33,28 @@ public class MipsFrame extends Frame {
         mFormalArguments = new LinkedList<>();
     }
 
-    public Frame newFrame(Label name, boolean... args) {
+    public Frame newFrame(Label name, LinkedList<Boolean> args) {
+        mName = name;
+
         MipsFrame mipsFrame = new MipsFrame();
 
-        for (int i = 0; i < args.length; i++) {
-            Access access;
+        Access access;
+        int i = 0;
+        Iterator<Boolean> iterator = args.iterator();
+
+        while (iterator.hasNext()) {
+            boolean isInFrame = iterator.next();
 
             if (i > 3) {
                 access = new InFrame(mOffsetArgs);
                 mOffsetArgs += 4;
             } else {
-                if (args[i]) {
-                    access = new InFrame(mOffsetArgs);
-                    mOffsetArgs += 4;
-                } else {
-                    access = new InReg(mRegArgs[i]);
-                }
+                access = (isInFrame ? new InFrame(getWordSize() * i) : new InReg(mRegArgs[i]));
             }
 
             mFormalArguments.add(access);
+
+            i++;
         }
 
         return mipsFrame;
@@ -72,9 +78,23 @@ public class MipsFrame extends Frame {
         return mFP;
     }
 
+    public Temp getRV() {
+        return mRV;
+    }
+
     @Override
     public Temp getFirstArg() {
         return mA0;
+    }
+
+    @Override
+    public IRExpression externalCall(String functionName, LinkedList<IRExpression> args) {
+        return new CALL(new NAME(Label.newLabel(functionName)), args);
+    }
+
+    @Override
+    public IRStatement procEntryExit1(IRStatement statement) {
+        return statement;
     }
 
 }

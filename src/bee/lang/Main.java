@@ -27,7 +27,7 @@ public class Main {
         validatingLoopsVisitor.visit(program);
         NewLayoutsVisitor newLayoutsVisitor = new NewLayoutsVisitor(scope, symbolTableVisitor.getSortedListOfClasses());
         newLayoutsVisitor.visit(program);
-        NewIRTreeVisitor newIRTreeVisitor = new NewIRTreeVisitor(new MipsFrame());
+        NewIRTreeVisitor newIRTreeVisitor = new NewIRTreeVisitor(new MipsFrame(), newLayoutsVisitor.getObjectLayout(), newLayoutsVisitor.getClassLayout(), newLayoutsVisitor.getVirtualTable());
         newIRTreeVisitor.visit(program);
     }
 

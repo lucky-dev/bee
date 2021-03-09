@@ -4,6 +4,7 @@ import bee.lang.ast.*;
 import bee.lang.ir.Label;
 import bee.lang.ir.Temp;
 import bee.lang.ir.tree.*;
+import bee.lang.symtable.ClassSymbol;
 import bee.lang.symtable.MethodSymbol;
 import bee.lang.translate.frame.Frame;
 import bee.lang.translate.ir.Ex;
@@ -12,6 +13,7 @@ import bee.lang.translate.ir.RelCx;
 import bee.lang.translate.ir.WrapperIRExpression;
 import bee.lang.visitors.IRTreeVisitor;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 
@@ -33,9 +35,22 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
     private Label mCurrentLblEnd;
     private Label mCurrentLblBeginLoop;
     private Frame mFrame;
+    private HashMap<String, EntityLayout> mObjectLayouts;
+    private HashMap<String, EntityLayout> mClassLayouts;
+    private HashMap<String, EntityLayout> mMethodLayouts;
+    private ClassSymbol mCurrentClassSymbol;
+    // The list of fragments keeps all procedures and data.
+    private LinkedList<Fragment> mListFragments;
 
-    public NewIRTreeVisitor(Frame frame) {
+    public NewIRTreeVisitor(Frame frame,
+                            HashMap<String, EntityLayout> objectLayouts,
+                            HashMap<String, EntityLayout> classLayouts,
+                            HashMap<String, EntityLayout> methodLayouts) {
         mFrame = frame;
+        mObjectLayouts = objectLayouts;
+        mClassLayouts = classLayouts;
+        mMethodLayouts = methodLayouts;
+        mListFragments = new LinkedList<>();
     }
 
     @Override
@@ -97,11 +112,13 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
         Temp result = new Temp();
 
-        return new Ex(new ESEQ(
-                new SEQ(new MOVE(new TEMP(result), rightExpression.unEx()),
-                        new MOVE(leftExpression.unEx(), new TEMP(result))),
-                new TEMP(result)
-        ));
+        return new Ex(
+                new ESEQ(
+                    new SEQ(new MOVE(new TEMP(result), rightExpression.unEx()),
+                            new MOVE(leftExpression.unEx(), new TEMP(result))),
+                    new TEMP(result)
+                )
+        );
     }
 
     @Override
@@ -141,13 +158,18 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
         if (methodSymbol.isStatic()) {
             return new Ex(new CALL(new NAME(Label.newLabel(methodSymbol.getMethodId())), args));
-        } else if ((methodSymbol.isPrivate()) || (expression.getExpression() instanceof Super)) {
-            // The first argument is the current object aka 'this'.
-            args.addFirst(expression.visit(this).unEx());
-            return new Ex(new CALL(new NAME(Label.newLabel(methodSymbol.getMethodId())), args));
         } else {
-            // TODO Implement this
-            return null;
+            // The first argument is the current object aka 'this'.
+            IRExpression currentObject = expression.getExpression().visit(this).unEx();
+            args.addFirst(currentObject);
+
+            if ((methodSymbol.isPrivate()) || (expression.getExpression() instanceof Super)) {
+                return new Ex(new CALL(new NAME(Label.newLabel(methodSymbol.getMethodId())), args));
+            } else {
+                EntityLayout virtualTable = mMethodLayouts.get(mCurrentClassSymbol.getIdentifier().getName());
+                int virtualMethodId = virtualTable.get(((MethodSymbol) expression.getSymbol()).getMethodId());
+                return new Ex(new CALL(new BINOP(TypeBinOp.PLUS, new MEM(new MEM(currentObject)), new BINOP(TypeBinOp.MUL, new CONST(virtualMethodId), new CONST(mFrame.getWordSize()))), args));
+            }
         }
     }
 
@@ -158,16 +180,30 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
     @Override
     public WrapperIRExpression visit(ClassDefinition statement) {
+        mCurrentClassSymbol = (ClassSymbol) statement.getSymbol();
+
+        statement.getFieldDefinitions().visit(this);
         statement.getConstructorDefinitions().visit(this);
         statement.getMethodDefinitions().visit(this);
+
+        mCurrentClassSymbol = null;
 
         return null;
     }
 
     @Override
     public WrapperIRExpression visit(ConstructorDefinition statement) {
-        // TODO Add code to initialize fields of an object in the constructor with keyword `super`
-        statement.getBody().visit(this);
+        String methodName = ((MethodSymbol) statement.getSymbol()).getMethodId();
+
+        Iterator<Statement> listIterator = statement.getFormalArgumentsList().getStatementsList().iterator();
+        LinkedList<Boolean> args = new LinkedList<>();
+        while (listIterator.hasNext()) {
+            args.add(false);
+        }
+
+        WrapperIRExpression tree = statement.getBody().visit(this);
+
+        mListFragments.add(new ProcedureFragment(tree.unNx(), mFrame.newFrame(Label.newLabel(methodName), args)));
 
         return null;
     }
@@ -325,7 +361,15 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
     @Override
     public WrapperIRExpression visit(MethodDefinition statement) {
-        statement.getBody().visit(this);
+        String methodName = ((MethodSymbol) statement.getSymbol()).getMethodId();
+
+        Iterator<Statement> listIterator = statement.getFormalArgumentsList().getStatementsList().iterator();
+        LinkedList<Boolean> args = new LinkedList<>();
+        while (listIterator.hasNext()) {
+            args.add(false);
+        }
+
+        mListFragments.add(new ProcedureFragment(statement.getBody().visit(this).unNx(), mFrame.newFrame(Label.newLabel(methodName), args)));
 
         return null;
     }
@@ -439,13 +483,34 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
     @Override
     public WrapperIRExpression visit(Statements statement) {
-        Iterator<Statement> iterator = statement.getStatementsList().iterator();
+        if (statement.getStatementsList().size() > 0) {
+            if (statement.getStatementsList().size() > 1) {
+                Iterator<Statement> iterator = statement.getStatementsList().iterator();
 
-        while (iterator.hasNext()) {
-            iterator.next().visit(this);
+                SEQ listSeqs = new SEQ();
+                SEQ currentSeq = listSeqs;
+                int i = 0;
+                while (iterator.hasNext()) {
+                    currentSeq.setLeftStatement(iterator.next().visit(this).unNx());
+
+                    if (i < statement.getStatementsList().size() - 2) {
+                        SEQ nextSeq = new SEQ();
+                        currentSeq.setRightStatement(nextSeq);
+                        currentSeq = nextSeq;
+                    } else {
+                        currentSeq.setRightStatement(iterator.next().visit(this).unNx());
+                    }
+
+                    i++;
+                }
+
+                return new Nx(listSeqs);
+            } else {
+                return statement.getStatementsList().getFirst().visit(this);
+            }
         }
 
-        return null;
+        return new Nx(null);
     }
 
     @Override
