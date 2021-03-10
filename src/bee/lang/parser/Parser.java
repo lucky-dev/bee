@@ -139,7 +139,7 @@ public class Parser {
                 }
             } catch (IOException e) {
                 e.printStackTrace();
-            } catch (UnexpectedTokenException e) {
+            } catch (BaseParserException e) {
                 System.out.println(e.toString());
             }
         }
@@ -154,14 +154,14 @@ public class Parser {
             mLexer.initState(text, "");
             mToken = mLexer.getNextToken();
             program = program();
-        } catch (UnexpectedTokenException e) {
+        } catch (BaseParserException e) {
             System.out.println(e.toString());
         }
 
         return program;
     }
 
-    private Program program() throws UnexpectedTokenException {
+    private Program program() throws BaseParserException {
         Program program = new Program();
 
         while (isCurrentToken(TokenType.CLASS)) {
@@ -173,7 +173,7 @@ public class Parser {
         return program;
     }
 
-    private Statement classDefinitionStatement() throws UnexpectedTokenException {
+    private Statement classDefinitionStatement() throws BaseParserException {
         match(TokenType.CLASS);
 
         match(TokenType.IDENTIFIER);
@@ -232,7 +232,7 @@ public class Parser {
         return new ClassDefinition(baseClassIdentifier, classIdentifier, constructorDefinitions, methodDefinitions, fieldDefinitions);
     }
 
-    private Statement constructorDefinitionStatement(AccessModifier accessModifier) throws UnexpectedTokenException {
+    private Statement constructorDefinitionStatement(AccessModifier accessModifier) throws BaseParserException {
         Token constructorToken = mToken;
 
         match(TokenType.CONSTRUCTOR);
@@ -289,11 +289,11 @@ public class Parser {
         return new ConstructorDefinition(constructorToken, accessModifier, formalArgumentsList, superConstructorArgumentsList, otherConstructorArgumentsList, statements);
     }
 
-    private Statement fieldDefinitionStatement(AccessModifier accessModifier, boolean isStatic) throws UnexpectedTokenException {
+    private Statement fieldDefinitionStatement(AccessModifier accessModifier, boolean isStatic) throws BaseParserException {
         return new FieldDefinition(getPreviousToken(), accessModifier, isStatic, variableDefinitionStatement());
     }
 
-    private Statement methodDefinitionStatement(AccessModifier accessModifier, boolean isStatic) throws UnexpectedTokenException {
+    private Statement methodDefinitionStatement(AccessModifier accessModifier, boolean isStatic) throws BaseParserException {
         match(TokenType.IDENTIFIER);
 
         Identifier identifier = new Identifier(getPreviousToken());
@@ -329,7 +329,7 @@ public class Parser {
         return new MethodDefinition(accessModifier, isStatic, identifier, formalArgumentsList, type, statements);
     }
 
-    private VariableDefinition variableDefinitionStatement() throws UnexpectedTokenException {
+    private VariableDefinition variableDefinitionStatement() throws BaseParserException {
         VariableDefinition variableDefinition = baseVariableDeclaration();
 
         Expression initExpression = null;
@@ -346,7 +346,7 @@ public class Parser {
         return variableDefinition;
     }
 
-    private VariableDefinition baseVariableDeclaration() throws UnexpectedTokenException {
+    private VariableDefinition baseVariableDeclaration() throws BaseParserException {
         Token token = mToken;
 
         boolean isConst = false;
@@ -369,7 +369,7 @@ public class Parser {
         return new VariableDefinition(token, isConst, identifier, type, null);
     }
 
-    private Statements statements() throws UnexpectedTokenException {
+    private Statements statements() throws BaseParserException {
         Statements statements = new Statements();
 
         while (!isCurrentToken(TokenType.R_BRACE)) {
@@ -379,7 +379,7 @@ public class Parser {
         return statements;
     }
 
-    private Statement statement() throws UnexpectedTokenException {
+    private Statement statement() throws BaseParserException {
         if (isCurrentToken(TokenType.IF)) {
             return ifStatement();
         } else if (isCurrentToken(TokenType.WHILE)) {
@@ -401,7 +401,7 @@ public class Parser {
         }
     }
 
-    private Statement ifStatement() throws UnexpectedTokenException {
+    private Statement ifStatement() throws BaseParserException {
         Token token = mToken;
 
         match(TokenType.IF);
@@ -423,7 +423,7 @@ public class Parser {
         return new If(expression, thenStatement, elseStatement, token);
     }
 
-    private Statement whileStatement() throws UnexpectedTokenException {
+    private Statement whileStatement() throws BaseParserException {
         Token token = mToken;
 
         match(TokenType.WHILE);
@@ -437,7 +437,7 @@ public class Parser {
         return new While(expression, statement(), token);
     }
 
-    private Statement doWhileStatement() throws UnexpectedTokenException {
+    private Statement doWhileStatement() throws BaseParserException {
         match(TokenType.DO);
 
         Statement statement = statement();
@@ -457,7 +457,7 @@ public class Parser {
         return new DoWhile(expression, statement, token);
     }
 
-    private Statement blockStatement() throws UnexpectedTokenException {
+    private Statement blockStatement() throws BaseParserException {
         match(TokenType.L_BRACE);
 
         Statements statement = statements();
@@ -467,7 +467,7 @@ public class Parser {
         return new Block(statement);
     }
 
-    private Statement assignmentStatement() throws UnexpectedTokenException {
+    private Statement assignmentStatement() throws BaseParserException {
         AssignmentStatement assignmentStatement = new AssignmentStatement(assignmentExpression());
 
         match(TokenType.SEMICOLON);
@@ -475,7 +475,7 @@ public class Parser {
         return assignmentStatement;
     }
 
-    private Statement breakStatement() throws UnexpectedTokenException {
+    private Statement breakStatement() throws BaseParserException {
         match(TokenType.BREAK);
 
         Break breakStatement = new Break(getPreviousToken());
@@ -485,7 +485,7 @@ public class Parser {
         return breakStatement;
     }
 
-    private Statement continueStatement() throws UnexpectedTokenException {
+    private Statement continueStatement() throws BaseParserException {
         match(TokenType.CONTINUE);
 
         Continue continueStatement = new Continue(getPreviousToken());
@@ -495,7 +495,7 @@ public class Parser {
         return continueStatement;
     }
 
-    private Statement returnStatement() throws UnexpectedTokenException {
+    private Statement returnStatement() throws BaseParserException {
         Token token = mToken;
 
         match(TokenType.RETURN);
@@ -510,7 +510,7 @@ public class Parser {
         }
     }
 
-    private ArgumentsList argumentsList() throws UnexpectedTokenException {
+    private ArgumentsList argumentsList() throws BaseParserException {
         ArgumentsList argumentsList = new ArgumentsList();
         argumentsList.addExpression(conditionalExpression());
 
@@ -522,7 +522,7 @@ public class Parser {
         return argumentsList;
     }
 
-    private Statements formalArgumentsList() throws UnexpectedTokenException {
+    private Statements formalArgumentsList() throws BaseParserException {
         Statements argumentsList = new Statements();
         argumentsList.addStatement(baseVariableDeclaration());
 
@@ -534,7 +534,7 @@ public class Parser {
         return argumentsList;
     }
 
-    private Expression assignmentExpression() throws UnexpectedTokenException {
+    private Expression assignmentExpression() throws BaseParserException {
         Expression expression = unaryExpression();
 
         if (isCurrentToken(TokenType.ASSIGN)) {
@@ -545,7 +545,7 @@ public class Parser {
         return expression;
     }
 
-    private Expression conditionalExpression() throws UnexpectedTokenException {
+    private Expression conditionalExpression() throws BaseParserException {
         Expression expression = logicalOrExpression();
 
         if (isCurrentToken(TokenType.QUESTION_MARK)) {
@@ -558,7 +558,7 @@ public class Parser {
         return expression;
     }
 
-    private Expression logicalOrExpression() throws UnexpectedTokenException {
+    private Expression logicalOrExpression() throws BaseParserException {
         Expression expression = logicalAndExpression();
 
         while (isCurrentToken(TokenType.OR)) {
@@ -569,7 +569,7 @@ public class Parser {
         return expression;
     }
 
-    private Expression logicalAndExpression() throws UnexpectedTokenException {
+    private Expression logicalAndExpression() throws BaseParserException {
         Expression expression = equalityExpression();
 
         while (isCurrentToken(TokenType.AND)) {
@@ -580,7 +580,7 @@ public class Parser {
         return expression;
     }
 
-    private Expression equalityExpression() throws UnexpectedTokenException {
+    private Expression equalityExpression() throws BaseParserException {
         Expression expression = relationalExpression();
 
         while (isCurrentToken(TokenType.EQ, TokenType.NOT_EQ)) {
@@ -596,7 +596,7 @@ public class Parser {
         return expression;
     }
 
-    private Expression relationalExpression() throws UnexpectedTokenException {
+    private Expression relationalExpression() throws BaseParserException {
         Expression expression = addExpression();
 
         while (isCurrentToken(TokenType.LT, TokenType.LE, TokenType.GT, TokenType.GE)) {
@@ -618,7 +618,7 @@ public class Parser {
         return expression;
     }
 
-    private Expression addExpression() throws UnexpectedTokenException {
+    private Expression addExpression() throws BaseParserException {
         Expression expression = multExpression();
 
         while (isCurrentToken(TokenType.PLUS, TokenType.MINUS)) {
@@ -634,7 +634,7 @@ public class Parser {
         return expression;
     }
 
-    private Expression multExpression() throws UnexpectedTokenException {
+    private Expression multExpression() throws BaseParserException {
         Expression expression = unaryExpression();
 
         while (isCurrentToken(TokenType.TIMES, TokenType.DIV, TokenType.MOD)) {
@@ -653,7 +653,7 @@ public class Parser {
         return expression;
     }
 
-    private Expression unaryExpression() throws UnexpectedTokenException {
+    private Expression unaryExpression() throws BaseParserException {
         if (isCurrentToken(TokenType.MINUS)) {
             match(TokenType.MINUS);
             return new UnaryMinus(getPreviousToken(), unaryExpression());
@@ -665,7 +665,7 @@ public class Parser {
         }
     }
 
-    private Expression postfixExpression() throws UnexpectedTokenException {
+    private Expression postfixExpression() throws BaseParserException {
         Expression expression = primaryExpression();
 
         while (isCurrentToken(TokenType.L_SQ_PAREN, TokenType.DOT)) {
@@ -701,7 +701,7 @@ public class Parser {
         return expression;
     }
 
-    private Expression primaryExpression() throws UnexpectedTokenException {
+    private Expression primaryExpression() throws BaseParserException {
         if (isCurrentToken(TokenType.THIS)) {
             match(TokenType.THIS);
             return new This(getPreviousToken());
@@ -773,6 +773,11 @@ public class Parser {
                     match(TokenType.R_SQ_PAREN);
                 }
 
+                // Disable supporting multidimensional arrays.
+                if (arrayType.getType().isArray()) {
+                    throw new ArrayDimensionException(token);
+                }
+
                 return newArray;
             } else {
                 match(TokenType.L_PAREN);
@@ -789,7 +794,7 @@ public class Parser {
         }
     }
 
-    private BaseType extendedType() throws UnexpectedTokenException {
+    private BaseType extendedType() throws BaseParserException {
         BaseType type = type();
 
         if (isCurrentToken(TokenType.L_SQ_PAREN)) {
@@ -803,13 +808,18 @@ public class Parser {
                 match(TokenType.R_SQ_PAREN);
             }
 
+            // Disable supporting multidimensional arrays.
+            if (arrayType.getType().isArray()) {
+                throw new ArrayDimensionException(getPreviousToken());
+            }
+
             type = arrayType;
         }
 
         return type;
     }
 
-    private BaseType type() throws UnexpectedTokenException {
+    private BaseType type() throws BaseParserException {
         BaseType type;
         if (isCurrentToken(TokenType.INT_TYPE)) {
             match(TokenType.INT_TYPE);
@@ -828,7 +838,7 @@ public class Parser {
         return type;
     }
 
-    private void match(TokenType expectedToken) throws UnexpectedTokenException {
+    private void match(TokenType expectedToken) throws BaseParserException {
         if (isCurrentToken(expectedToken)) {
             mPreviousToken = mToken;
             mToken = mLexer.getNextToken();
@@ -838,7 +848,7 @@ public class Parser {
         throw new UnexpectedTokenException(mToken);
     }
 
-    private void match(TokenType... expectedToken) throws UnexpectedTokenException {
+    private void match(TokenType... expectedToken) throws BaseParserException {
         for (TokenType tokenType : expectedToken) {
             if (isCurrentToken(tokenType)) {
                 mPreviousToken = mToken;
@@ -868,16 +878,36 @@ public class Parser {
         return mPreviousToken;
     }
 
-    private static class UnexpectedTokenException extends Exception {
+    private static class BaseParserException extends Exception {
 
-        private Token mToken;
+        protected Token mToken;
+
+        public BaseParserException(Token token) {
+            mToken = token;
+        }
+
+    }
+
+    private static class UnexpectedTokenException extends BaseParserException {
 
         public UnexpectedTokenException(Token token) {
-            mToken = token;
+            super(token);
         }
 
         public String toString() {
             return "[" + mToken.getFileName() + " : " + mToken.getLine() + "] Unexpected token '" + mToken.getTokenType() + "'.";
+        }
+
+    }
+
+    private static class ArrayDimensionException extends BaseParserException {
+
+        public ArrayDimensionException(Token token) {
+            super(token);
+        }
+
+        public String toString() {
+            return "[" + mToken.getFileName() + " : " + mToken.getLine() + "] Compiler does not support multidimensional arrays.";
         }
 
     }
