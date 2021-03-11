@@ -36,4 +36,8 @@ public class EntityLayout {
         return position != null ? position : -1;
     }
 
+    public int getCountItems() {
+        return mIndex;
+    }
+
 }
