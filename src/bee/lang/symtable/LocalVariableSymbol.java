@@ -9,18 +9,17 @@ public class LocalVariableSymbol implements Symbol {
     private Identifier mIdentifier;
     private BaseType mType;
     private BaseScope mScope;
-    private String mClassName;
-    private String mMethodName;
+    private String mMethodId;
     private int mId;
-    private String mVarId;
+    private boolean isFormalArg;
 
-    public LocalVariableSymbol(boolean isConst, Identifier identifier, BaseType type, String className, String methodName, int id) {
+    public LocalVariableSymbol(boolean isConst, Identifier identifier, BaseType type, String methodId, boolean isFormalArg, int id) {
         this.isConst = isConst;
         mIdentifier = identifier;
         mType = type;
         mId = id;
-        mClassName = className;
-        mMethodName = methodName;
+        mMethodId = methodId;
+        this.isFormalArg = isFormalArg;
     }
 
     public boolean isConst() {
@@ -28,7 +27,7 @@ public class LocalVariableSymbol implements Symbol {
     }
 
     public String getVarId() {
-        return mClassName + "_" + mMethodName + "_localVar_" + mIdentifier.getName() + "_" + mId;
+        return mMethodId + (isFormalArg ? "_formalArg_" : "_localVar_") + mIdentifier.getName() + "_" + mId;
     }
 
     @Override
@@ -63,6 +62,10 @@ public class LocalVariableSymbol implements Symbol {
 
     @Override
     public void setNextSymbol(Symbol nextSymbol) {
+    }
+
+    public boolean isFormalArg() {
+        return isFormalArg;
     }
 
 }

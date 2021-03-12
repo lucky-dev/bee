@@ -21,6 +21,7 @@ public class NewSymbolTableVisitor implements BaseVisitor {
     private MethodSymbol mCurrentMethodSymbol;
     private int mCountVars;
     private LinkedList<String> mSortedListOfClasses;
+    private boolean isHeaderFunction;
 
     public NewSymbolTableVisitor() {
         mCurrentScope = new GlobalScope(null);
@@ -161,7 +162,10 @@ public class NewSymbolTableVisitor implements BaseVisitor {
 
         mCountVars = 0;
 
+        isHeaderFunction = true;
         statement.getFormalArgumentsList().visit(this);
+        isHeaderFunction = false;
+
         statement.getBody().visit(this);
 
         mCurrentMethodSymbol = null;
@@ -285,7 +289,10 @@ public class NewSymbolTableVisitor implements BaseVisitor {
 
         mCountVars = 0;
 
+        isHeaderFunction = true;
         statement.getFormalArgumentsList().visit(this);
+        isHeaderFunction = false;
+
         statement.getBody().visit(this);
 
         mCurrentMethodSymbol = null;
@@ -512,7 +519,9 @@ public class NewSymbolTableVisitor implements BaseVisitor {
         Symbol symbol = mCurrentScope.getSymbolInCurrentScope(statement.getIdentifier().getName());
 
         if (symbol == null) {
-            mCurrentScope.put(new LocalVariableSymbol(statement.isConst(), statement.getIdentifier(), statement.getType(), mCurrentClassSymbol.getIdentifier().getName(), mCurrentMethodSymbol.getIdentifier() == null ? "constructor" : mCurrentMethodSymbol.getIdentifier().getName(), mCountVars++));
+            LocalVariableSymbol localVariableSymbol = new LocalVariableSymbol(statement.isConst(), statement.getIdentifier(), statement.getType(), mCurrentMethodSymbol.getMethodId(), isHeaderFunction, mCountVars++);
+            mCurrentScope.put(localVariableSymbol);
+            statement.setSymbol(localVariableSymbol);
         } else {
             printErrorMessage(statement.getIdentifier().getToken(), mCurrentScope.getScopeName() + "' already has the identifier '" + statement.getIdentifier().getName() + "'.");
         }

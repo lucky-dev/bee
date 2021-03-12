@@ -36,4 +36,8 @@ public class ClassClassType extends BaseType {
         return true;
     }
 
+    public String toString() {
+        return "class";
+    }
+
 }

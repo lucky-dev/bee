@@ -47,7 +47,7 @@ public class MethodSymbol extends BaseScope implements Symbol {
     }
 
     public String getMethodId() {
-        return mClassName + "_method_" + mMethodName + "_" + mId + "";
+        return mClassName + "_method_" + mMethodName + "_" + mId;
     }
 
     @Override

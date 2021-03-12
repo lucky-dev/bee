@@ -6,6 +6,7 @@ import bee.lang.ir.Temp;
 import bee.lang.ir.tree.*;
 import bee.lang.symtable.ClassSymbol;
 import bee.lang.symtable.FieldSymbol;
+import bee.lang.symtable.LocalVariableSymbol;
 import bee.lang.symtable.MethodSymbol;
 import bee.lang.translate.frame.Frame;
 import bee.lang.translate.ir.Ex;
@@ -39,20 +40,29 @@ import java.util.LinkedList;
 
 public class NewIRTreeVisitor implements IRTreeVisitor {
 
-    // Function to print an error message
+    // Function to print an error message.
     private static final String FUNCTION_PRINT_ERROR = "_print_error";
-    // Arguments for the function '_print_error'
-    // If the first argument equals 0 this means an index is out of size of an array
+    // Arguments for the function '_print_error'.
+    // If the first argument equals 0 this means an index is out of size of an array.
 
-    // Function to alloc and initialize block of raw memory
+    // Function to alloc and initialize block of raw memory.
     private static final String FUNCTION_ALLOC_INIT_RAW_MEMORY = "_alloc_init_block";
 
-    // Function to initialize fields for objects of a class
+    // Function to initialize all non-static fields for an object.
     private static final String FUNCTION_INIT_FIELDS = "_%s_init_fields";
+
+    // Function to initialize static fields.
+    private static final String FUNCTION_INIT_STATIC_FIELDS = "_%s_init_static_fields";
+
+    // Function to alloc and initialize block of raw memory.
+    private static final String FUNCTION_CONVERT_STRING_TO_ARRAY = "_convert_string_to_array";
+
+    private static final String CLASS_DESCRIPTION = "_%s_class_description_";
 
     private Label mCurrentLblEnd;
     private Label mCurrentLblBeginLoop;
     private Label mEndProgramLbl;
+    private Label mClassDescriptionLbl;
     private Frame mFrame;
     private HashMap<String, EntityLayout> mObjectLayouts;
     private HashMap<String, EntityLayout> mClassLayouts;
@@ -62,9 +72,17 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
     private LinkedList<Fragment> mListFragments;
     private EntityLayout mObjectLayout;
     private EntityLayout mMethodLayout;
+    private EntityLayout mClassLayout;
     private boolean isFieldDefinition;
+    private boolean isStaticFieldDefinition;
     private String mCurrentFieldId;
-    private int mCountFieldsInCurrentClass;
+    private Frame mCurrentFrame;
+    private Frame mInitFieldsFrame;
+    private Frame mInitStaticFieldsFrame;
+    private IRStatement mBodyMethodInitFields;
+    private SEQ mLastStatementBodyMethodInitFields;
+    private IRStatement mBodyMethodInitStaticFields;
+    private SEQ mLastStatementBodyMethodInitStaticFields;
 
     public NewIRTreeVisitor(Frame frame,
                             HashMap<String, EntityLayout> objectLayouts,
@@ -144,7 +162,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
                 new ESEQ(
                         new MOVE(new TEMP(index), arrayIndex.unEx()),
                         new ESEQ(
-                                new MOVE(new TEMP(size), new MEM(new MEM(arrayExpression.unEx()))),
+                                new MOVE(new TEMP(size), new MEM(arrayExpression.unEx())),
                                 new ESEQ(
                                         new CJUMP(TypeRelOp.EQ, hiBound.unEx(), new CONST(1), lblTrue1, lblFalse),
                                         new ESEQ(
@@ -155,13 +173,13 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
                                                                 new SEQ(
                                                                         new LABEL(lblFalse),
                                                                         new SEQ(
-                                                                                new EXP(mFrame.externalCall(FUNCTION_PRINT_ERROR, errorFunctionArgs)),
+                                                                                new EXP(mCurrentFrame.externalCall(FUNCTION_PRINT_ERROR, errorFunctionArgs)),
                                                                                 new JUMP(mEndProgramLbl)
                                                                         )
                                                                 ),
                                                                 new ESEQ(
                                                                         new LABEL(lblTrue2),
-                                                                        new MEM(new BINOP(TypeBinOp.PLUS, new MEM(arrayExpression.unEx()), new BINOP(TypeBinOp.MUL, new BINOP(TypeBinOp.PLUS, new TEMP(index), new CONST(1)), new CONST(mFrame.getWordSize()))))
+                                                                        new MEM(new BINOP(TypeBinOp.PLUS, new MEM(arrayExpression.unEx()), new BINOP(TypeBinOp.MUL, new BINOP(TypeBinOp.PLUS, new TEMP(index), new CONST(1)), new CONST(mCurrentFrame.getWordSize()))))
                                                                 )
                                                         )
                                                 )
@@ -234,7 +252,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
                 return new Ex(new CALL(new NAME(Label.newLabel(methodSymbol.getMethodId())), args));
             } else {
                 int virtualMethodId = mMethodLayout.get(((MethodSymbol) expression.getSymbol()).getMethodId());
-                return new Ex(new CALL(new MEM(new BINOP(TypeBinOp.PLUS, new MEM(new MEM(new BINOP(TypeBinOp.PLUS, currentObject, new CONST(mFrame.getWordSize())))), new BINOP(TypeBinOp.MUL, new CONST(virtualMethodId), new CONST(mFrame.getWordSize())))), args));
+                return new Ex(new CALL(new MEM(new BINOP(TypeBinOp.PLUS, new MEM(new MEM(new BINOP(TypeBinOp.PLUS, currentObject, new CONST(mCurrentFrame.getWordSize())))), new BINOP(TypeBinOp.MUL, new CONST(virtualMethodId), new CONST(mCurrentFrame.getWordSize())))), args));
             }
         }
     }
@@ -251,23 +269,30 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         String className = mCurrentClassSymbol.getIdentifier().getName();
         mObjectLayout = mObjectLayouts.get(className);
         mMethodLayout = mMethodLayouts.get(className);
-        mCountFieldsInCurrentClass = statement.getFieldDefinitions().getStatementsList().size();
+        mClassLayout = mClassLayouts.get(className);
 
-        // Create a new method like this '_<class name>_init_fields'. This method is used to initialize all fields.
+        mClassDescriptionLbl = Label.newLabel(String.format(CLASS_DESCRIPTION, className));
+
+        // Create a new method like this '_<class name>_init_static_fields'. This method is used to initialize all static fields.
+        // This method will be called immediately for loaded class.
+        mInitStaticFieldsFrame = mFrame.newFrame(Label.newLabel(String.format(FUNCTION_INIT_STATIC_FIELDS, className)), new LinkedList<>());
+        mListFragments.add(new ProcedureFragment(mBodyMethodInitStaticFields, mCurrentFrame));
+
+        // Create a new method like this '_<class name>_init_fields'. This method is used to initialize all non-static fields.
         // This method will be called by a constructor after calling a super constructor.
-        WrapperIRExpression initFields = statement.getFieldDefinitions().visit(this);
-        if (initFields != null) {
-            LinkedList<Boolean> args = new LinkedList<>();
-            args.add(false);
-            mListFragments.add(new ProcedureFragment(initFields.unNx(), mFrame.newFrame(Label.newLabel(String.format(FUNCTION_INIT_FIELDS, mCurrentClassSymbol.getIdentifier().getName())), args)));
-        }
+        LinkedList<Boolean> args = new LinkedList<>();
+        args.add(false);
+        mInitFieldsFrame = mFrame.newFrame(Label.newLabel(String.format(FUNCTION_INIT_FIELDS, className)), args);
+        mListFragments.add(new ProcedureFragment(mBodyMethodInitFields, mCurrentFrame));
+
+        statement.getFieldDefinitions().visit(this);
 
         statement.getConstructorDefinitions().visit(this);
         statement.getMethodDefinitions().visit(this);
 
         mObjectLayout = null;
         mMethodLayout = null;
-        mCountFieldsInCurrentClass = 0;
+        mClassLayouts = null;
 
         mCurrentClassSymbol = null;
 
@@ -277,6 +302,18 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
     @Override
     public WrapperIRExpression visit(ConstructorDefinition statement) {
         String methodName = ((MethodSymbol) statement.getSymbol()).getMethodId();
+
+        Iterator<Statement> listIterator = statement.getFormalArgumentsList().getStatementsList().iterator();
+        LinkedList<Boolean> procedureArgs = new LinkedList<>();
+        procedureArgs.add(false);
+        while (listIterator.hasNext()) {
+            procedureArgs.add(false);
+            listIterator.next();
+        }
+
+        mCurrentFrame = mFrame.newFrame(Label.newLabel(methodName), procedureArgs);
+
+        statement.getFormalArgumentsList().visit(this);
 
         IRStatement callOtherConstructor = null;
 
@@ -305,14 +342,14 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         }
 
         LinkedList<IRExpression> args = new LinkedList<>();
-        args.add(new TEMP(mFrame.getFirstArg()));
+        args.add(mCurrentFrame.getFormalArg(0).exp(new TEMP(mCurrentFrame.getFP())));
 
         if (callOtherConstructor != null) {
             tree = new Nx(
                     new SEQ(
                             callOtherConstructor,
                             new SEQ(
-                                    mCountFieldsInCurrentClass == 0 ? null : new EXP(new CALL(new NAME(Label.newLabel(String.format(FUNCTION_INIT_FIELDS, mCurrentClassSymbol.getIdentifier().getName()))), args)),
+                                    new EXP(new CALL(new NAME(Label.newLabel(String.format(FUNCTION_INIT_FIELDS, mCurrentClassSymbol.getIdentifier().getName()))), args)),
                                     (tree != null ? tree.unNx() : null)
                             )
                     )
@@ -320,20 +357,17 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         } else {
             tree = new Nx(
                     new SEQ(
-                            mCountFieldsInCurrentClass == 0 ? null : new EXP(new CALL(new NAME(Label.newLabel(String.format(FUNCTION_INIT_FIELDS, mCurrentClassSymbol.getIdentifier().getName()))), args)),
+                            new EXP(new CALL(new NAME(Label.newLabel(String.format(FUNCTION_INIT_FIELDS, mCurrentClassSymbol.getIdentifier().getName()))), args)),
                             (tree != null ? tree.unNx() : null)
                     )
             );
         }
 
-        Iterator<Statement> listIterator = statement.getFormalArgumentsList().getStatementsList().iterator();
-        LinkedList<Boolean> procedureArgs = new LinkedList<>();
-        while (listIterator.hasNext()) {
-            procedureArgs.add(false);
-            listIterator.next();
-        }
 
-        mListFragments.add(new ProcedureFragment(tree.unNx(), mFrame.newFrame(Label.newLabel(methodName), procedureArgs)));
+
+        mListFragments.add(new ProcedureFragment(tree.unNx(), mCurrentFrame));
+
+        mCurrentFrame = null;
 
         return null;
     }
@@ -389,6 +423,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
     @Override
     public WrapperIRExpression visit(FieldAccess expression) {
+        // TODO Implement
         return null;
     }
 
@@ -396,20 +431,24 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
     public WrapperIRExpression visit(FieldDefinition statement) {
         isFieldDefinition = true;
 
-        WrapperIRExpression result = null;
+        mCurrentFieldId = ((FieldSymbol) statement.getSymbol()).getFieldId();
 
-        // Skip static fields. They belong to class.
-        if (!statement.isStatic()) {
-            mCurrentFieldId = ((FieldSymbol) statement.getSymbol()).getFieldId();
+        isStaticFieldDefinition = statement.isStatic();
 
-            result = statement.getVariableDefinition().visit(this);
+        Frame oldFrame = mCurrentFrame;
+        mCurrentFrame = (isStaticFieldDefinition ? mInitStaticFieldsFrame : mInitFieldsFrame);
 
-            mCurrentFieldId = null;
-        }
+        statement.getVariableDefinition().visit(this);
+
+        mCurrentFrame = oldFrame;
+
+        isStaticFieldDefinition = false;
+
+        mCurrentFieldId = null;
 
         isFieldDefinition = false;
 
-        return result;
+        return null;
     }
 
     @Override
@@ -430,6 +469,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
     @Override
     public WrapperIRExpression visit(Identifier expression) {
+        // TODO Implement
         return null;
     }
 
@@ -510,12 +550,25 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
         Iterator<Statement> listIterator = statement.getFormalArgumentsList().getStatementsList().iterator();
         LinkedList<Boolean> args = new LinkedList<>();
+
+        if (!statement.isStatic()) {
+            args.add(false);
+        }
+
         while (listIterator.hasNext()) {
             args.add(false);
             listIterator.next();
         }
 
-        mListFragments.add(new ProcedureFragment(statement.getBody().visit(this).unNx(), mFrame.newFrame(Label.newLabel(methodName), args)));
+        mCurrentFrame = mFrame.newFrame(Label.newLabel(methodName), args);
+
+        statement.getFormalArgumentsList().visit(this);
+
+        statement.getBody().visit(this);
+
+        mListFragments.add(new ProcedureFragment(statement.getBody().visit(this).unNx(), mCurrentFrame));
+
+        mCurrentFrame = null;
 
         return null;
     }
@@ -542,9 +595,9 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
                         new SEQ(
                                 new MOVE(new TEMP(originalSize), expression.getSize().visit(this).unEx()),
                                 new SEQ(
-                                        new MOVE(new TEMP(newSize), new BINOP(TypeBinOp.MUL, new BINOP(TypeBinOp.PLUS, new TEMP(originalSize), new CONST(1)), new CONST(mFrame.getWordSize()))),
+                                        new MOVE(new TEMP(newSize), new BINOP(TypeBinOp.MUL, new BINOP(TypeBinOp.PLUS, new TEMP(originalSize), new CONST(1)), new CONST(mCurrentFrame.getWordSize()))),
                                         new SEQ(
-                                                new MOVE(new TEMP(newArray), mFrame.externalCall(FUNCTION_ALLOC_INIT_RAW_MEMORY, args)),
+                                                new MOVE(new TEMP(newArray), mCurrentFrame.externalCall(FUNCTION_ALLOC_INIT_RAW_MEMORY, args)),
                                                 new MOVE(new MEM(new TEMP(newArray)), new TEMP(originalSize))
                                         )
                                 )
@@ -570,9 +623,9 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         return new Ex(
                 new ESEQ(
                         new SEQ(
-                                new MOVE(new TEMP(newSize), new BINOP(TypeBinOp.MUL, new BINOP(TypeBinOp.PLUS, new CONST(mObjectLayout.getCountItems()), new CONST(2)), new CONST(mFrame.getWordSize()))),
+                                new MOVE(new TEMP(newSize), new BINOP(TypeBinOp.MUL, new BINOP(TypeBinOp.PLUS, new CONST(mObjectLayout.getCountItems()), new CONST(2)), new CONST(mCurrentFrame.getWordSize()))),
                                 new SEQ(new MOVE(
-                                        new TEMP(newObject), mFrame.externalCall(FUNCTION_ALLOC_INIT_RAW_MEMORY, argsForAllocInitFunction)),
+                                        new TEMP(newObject), mCurrentFrame.externalCall(FUNCTION_ALLOC_INIT_RAW_MEMORY, argsForAllocInitFunction)),
                                         new SEQ(
                                                 new MOVE(new MEM(new TEMP(newObject)), new TEMP(newSize)),
                                                 new EXP(new CALL(new NAME(Label.newLabel(methodSymbol.getMethodId())), argsForConstructor))
@@ -670,6 +723,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
     @Override
     public WrapperIRExpression visit(Return statement) {
+        // TODO Implement
         return null;
     }
 
@@ -707,6 +761,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
     @Override
     public WrapperIRExpression visit(StringLiteral expression) {
+        // TODO Implement
         return null;
     }
 
@@ -720,7 +775,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
     @Override
     public WrapperIRExpression visit(Super expression) {
-        return new Ex(new TEMP(mFrame.getFirstArg()));
+        return new Ex(mCurrentFrame.getFormalArg(0).exp(new TEMP(mCurrentFrame.getFP())));
     }
 
     @Override
@@ -762,7 +817,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
     @Override
     public WrapperIRExpression visit(This expression) {
-        return new Ex(new TEMP(mFrame.getFirstArg()));
+        return new Ex(mCurrentFrame.getFormalArg(0).exp(new TEMP(mCurrentFrame.getFP())));
     }
 
     @Override
@@ -785,8 +840,37 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         WrapperIRExpression irInitExpression = (statement.getInitExpression() != null ? statement.getInitExpression().visit(this) : new Ex(new CONST(0)));
 
         if (isFieldDefinition) {
-            int fieldId = mObjectLayout.get(mCurrentFieldId);
-            return new Nx(new MOVE(new MEM(new BINOP(TypeBinOp.PLUS, new TEMP(mFrame.getFirstArg()), new BINOP(TypeBinOp.PLUS, new CONST(fieldId), new BINOP(TypeBinOp.MUL, new CONST(2), new CONST(mFrame.getWordSize()))))), irInitExpression.unEx()));
+            if (isStaticFieldDefinition) {
+                // This code is generated for the method '_<class name>_init_static_fields'.
+                if (mBodyMethodInitStaticFields == null) {
+                    mLastStatementBodyMethodInitStaticFields = new SEQ();
+                    mBodyMethodInitStaticFields = mLastStatementBodyMethodInitStaticFields;
+                } else {
+                    SEQ newSeq = new SEQ();
+                    mLastStatementBodyMethodInitStaticFields.setRightStatement(newSeq);
+                    mLastStatementBodyMethodInitStaticFields = newSeq;
+                }
+
+                int fieldId = mClassLayout.get(mCurrentFieldId);
+                mLastStatementBodyMethodInitStaticFields.setLeftStatement(new MOVE(new MEM(new BINOP(TypeBinOp.PLUS, new NAME(mClassDescriptionLbl), new BINOP(TypeBinOp.MUL, new BINOP(TypeBinOp.PLUS, new CONST(fieldId), new CONST(1)), new CONST(mCurrentFrame.getWordSize())))), irInitExpression.unEx()));
+            } else {
+                // This code is generated for the method '_<class name>_init_fields'.
+                if (mBodyMethodInitFields == null) {
+                    mLastStatementBodyMethodInitFields = new SEQ();
+                    mBodyMethodInitFields = mLastStatementBodyMethodInitFields;
+                } else {
+                    SEQ newSeq = new SEQ();
+                    mLastStatementBodyMethodInitFields.setRightStatement(newSeq);
+                    mLastStatementBodyMethodInitFields = newSeq;
+                }
+
+                int fieldId = mObjectLayout.get(mCurrentFieldId);
+                mLastStatementBodyMethodInitFields.setLeftStatement(new MOVE(new MEM(new BINOP(TypeBinOp.PLUS, mCurrentFrame.getFormalArg(0).exp(new TEMP(mCurrentFrame.getFP())), new BINOP(TypeBinOp.PLUS, new CONST(fieldId), new BINOP(TypeBinOp.MUL, new CONST(2), new CONST(mCurrentFrame.getWordSize()))))), irInitExpression.unEx()));
+            }
+        } else {
+            if (!((LocalVariableSymbol) statement.getSymbol()).isFormalArg()) {
+                mCurrentFrame.allocLocal(true);
+            }
         }
 
         return null;

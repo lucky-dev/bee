@@ -4,6 +4,7 @@ import bee.lang.ir.Label;
 import bee.lang.ir.Temp;
 import bee.lang.ir.tree.*;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
 
@@ -30,13 +31,14 @@ public class MipsFrame extends Frame {
         mA2 = new Temp();
         mA3 = new Temp();
         mRegArgs = new Temp[] { mA0, mA1, mA2, mA3 };
-        mFormalArguments = new LinkedList<>();
+        mFormalArguments = new ArrayList<>();
+        mLocalVariables = new ArrayList<>();
     }
 
     public Frame newFrame(Label name, LinkedList<Boolean> args) {
-        mName = name;
-
         MipsFrame mipsFrame = new MipsFrame();
+
+        mipsFrame.mName = name;
 
         Access access;
         int i = 0;
@@ -46,13 +48,13 @@ public class MipsFrame extends Frame {
             boolean isInFrame = iterator.next();
 
             if (i > 3) {
-                access = new InFrame(mOffsetArgs);
-                mOffsetArgs += 4;
+                access = new InFrame(mipsFrame.mOffsetArgs);
+                mipsFrame.mOffsetArgs += 4;
             } else {
-                access = (isInFrame ? new InFrame(getWordSize() * i) : new InReg(mRegArgs[i]));
+                access = (isInFrame ? new InFrame(getWordSize() * i) : new InReg(mipsFrame.mRegArgs[i]));
             }
 
-            mFormalArguments.add(access);
+            mipsFrame.mFormalArguments.add(access);
 
             i++;
         }
@@ -61,12 +63,18 @@ public class MipsFrame extends Frame {
     }
 
     public Access allocLocal(boolean inFrame) {
+        Access access;
+
         if (inFrame) {
             mOffsetLocals -= 4;
-            return new InFrame(mOffsetLocals);
+            access = new InFrame(mOffsetLocals);
         } else {
-            return new InReg(new Temp());
+            access = new InReg(new Temp());
         }
+
+        mLocalVariables.add(access);
+
+        return access;
     }
 
     public int getWordSize() {
@@ -83,8 +91,13 @@ public class MipsFrame extends Frame {
     }
 
     @Override
-    public Temp getFirstArg() {
-        return mA0;
+    public Access getFormalArg(int index) {
+        return mFormalArguments.get(index);
+    }
+
+    @Override
+    public Access getLocalVar(int index) {
+        return mLocalVariables.get(index);
     }
 
     @Override

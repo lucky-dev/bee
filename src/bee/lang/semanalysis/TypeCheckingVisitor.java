@@ -429,7 +429,35 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(FieldDefinition statement) {
-        return statement.getVariableDefinition().visit(this);
+        BaseType baseType = statement.getVariableDefinition().visit(this);
+
+        if (statement.isStatic()) {
+            Expression initExpression = statement.getVariableDefinition().getInitExpression();
+            if (initExpression != null) {
+                if (initExpression instanceof Call) {
+                    MethodSymbol methodSymbol = (MethodSymbol) ((Call) initExpression).getSymbol();
+                    if (!methodSymbol.isStatic()) {
+                        printErrorMessage(statement.getVariableDefinition().getIdentifier().getToken(), "Can not use non-static method '" + methodSymbol.getIdentifier().getName() + "' in static context.");
+                    }
+                }
+
+                if (initExpression instanceof FieldAccess) {
+                    FieldSymbol fieldSymbol = (FieldSymbol) ((FieldAccess) initExpression).getSymbol();
+                    if (!fieldSymbol.isStatic()) {
+                        printErrorMessage(statement.getVariableDefinition().getIdentifier().getToken(), "Can not use non-static field '" + fieldSymbol.getIdentifier().getName() + "' in static context.");
+                    }
+                }
+
+                if (initExpression instanceof Identifier) {
+                    FieldSymbol fieldSymbol = (FieldSymbol) ((Identifier) initExpression).getSymbol();
+                    if (!fieldSymbol.isStatic()) {
+                        printErrorMessage(statement.getVariableDefinition().getIdentifier().getToken(), "Can not use non-static field '" + fieldSymbol.getIdentifier().getName() + "' in static context.");
+                    }
+                }
+            }
+        }
+
+        return baseType;
     }
 
     @Override
@@ -472,7 +500,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
                 FieldSymbol fieldSymbol = (FieldSymbol) symbol;
 
                 if ((!fieldSymbol.isStatic()) && ((scope == mCurrentClassSymbol) || ((fieldSymbol.isPublic()) || fieldSymbol.isProtected()))) {
-                    if (mCurrentMethodSymbol.isStatic()) {
+                    if ((mCurrentMethodSymbol != null) && (mCurrentMethodSymbol.isStatic())) {
                         printErrorMessage(expression.getToken(), "Static method '" + mCurrentMethodSymbol.getIdentifier().getName() + "' do not have access to '" + symbol.getIdentifier().getName() + "'.");
                         break;
                     }

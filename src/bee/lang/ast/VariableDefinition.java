@@ -2,6 +2,7 @@ package bee.lang.ast;
 
 import bee.lang.ast.types.BaseType;
 import bee.lang.lexer.Token;
+import bee.lang.symtable.Symbol;
 import bee.lang.translate.ir.WrapperIRExpression;
 import bee.lang.visitors.BaseVisitor;
 import bee.lang.visitors.IRTreeVisitor;
@@ -14,6 +15,7 @@ public class VariableDefinition extends Statement {
     private Identifier mIdentifier;
     private BaseType mType;
     private Expression mInitExpression;
+    private Symbol mSymbol;
 
     public VariableDefinition(Token token, boolean isConst, Identifier identifier, BaseType type, Expression initExpression) {
         mToken = token;
@@ -45,6 +47,14 @@ public class VariableDefinition extends Statement {
 
     public BaseType getType() {
         return mType;
+    }
+
+    public Symbol getSymbol() {
+        return mSymbol;
+    }
+
+    public void setSymbol(Symbol symbol) {
+        mSymbol = symbol;
     }
 
     @Override
