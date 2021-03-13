@@ -17,12 +17,15 @@ public class TypeCheckingVisitor implements TypeVisitor {
     protected BaseScope mGlobalScope;
     private boolean isConst;
     private boolean isReturnStatement;
+    private boolean isValidatingOtherConstructor;
 
     public TypeCheckingVisitor(BaseScope baseScope) {
         mBaseScope = baseScope;
         mCurrentScope = baseScope;
         mGlobalScope = baseScope;
         isConst = false;
+        isReturnStatement = false;
+        isValidatingOtherConstructor = false;
     }
 
     @Override
@@ -267,6 +270,11 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
             expression.setSymbol(foundMethodSymbol);
 
+            if ((isValidatingOtherConstructor) && (!foundMethodSymbol.isStatic())) {
+                printErrorMessage(expression.getIdentifier().getToken(), "Cannot reference '" + foundMethodSymbol.getIdentifier().getName() +"' in calling other constructor.");
+                return Type.Error;
+            }
+
             return ((MethodType) foundMethodSymbol.getType()).getReturnType();
         } else {
             printErrorMessage(expression.getIdentifier().getToken(), "Can not find a method '" + expression.getIdentifier().getName() + "' for such arguments.");
@@ -303,6 +311,8 @@ public class TypeCheckingVisitor implements TypeVisitor {
         mCurrentScope = mCurrentMethodSymbol;
 
         isReturnStatement = false;
+
+        checkOtherConstructors(statement);
 
         statement.getBody().visit(this);
 
@@ -505,6 +515,11 @@ public class TypeCheckingVisitor implements TypeVisitor {
                         break;
                     }
 
+                    if (isValidatingOtherConstructor) {
+                        printErrorMessage(expression.getToken(), "Cannot reference '" + fieldSymbol.getIdentifier().getName() +"' in calling other constructor.");
+                        break;
+                    }
+
                     isConst = fieldSymbol.isConst();
 
                     expression.setSymbol(fieldSymbol);
@@ -514,16 +529,20 @@ public class TypeCheckingVisitor implements TypeVisitor {
                     printErrorMessage(expression.getToken(), "Can not have access to the identifier '" + symbol.getIdentifier().getName() + "'.");
                     break;
                 }
-            } else if (symbol instanceof LocalVariableSymbol) {
+            }
+
+            if (symbol instanceof LocalVariableSymbol) {
                 isConst = ((LocalVariableSymbol) symbol).isConst();
 
                 expression.setSymbol(symbol);
 
                 return symbol.getType();
-            } else {
-                if (symbol != null) {
-                    return symbol.getType();
-                }
+            }
+
+            if (symbol instanceof ClassSymbol) {
+                expression.setSymbol(symbol);
+
+                return symbol.getType();
             }
 
             scope = scope.getEnclosingScope();
@@ -985,6 +1004,96 @@ public class TypeCheckingVisitor implements TypeVisitor {
         statement.getStatement().visit(this);
 
         return Type.Nothing;
+    }
+
+    private void checkOtherConstructors(ConstructorDefinition statement) {
+        // Bee does not have the root class for all classes by default. If the keyword `super` uses in a constructor of a class without a base class then need to ignore this case and do not find constructors in a base class.
+        if ((statement.getSuperConstructorArgumentsList() != null) && (mCurrentClassSymbol.getBaseClassIdentifier() == null)) {
+            if (!statement.getSuperConstructorArgumentsList().getExpressionList().isEmpty()) {
+                printErrorMessage(statement.getToken(), "A class without a base class can not call super-constructor with arguments.");
+            }
+
+            return;
+        }
+
+        MethodType expectedMethodType = new MethodType();
+
+        Iterator<Expression> iterator = (statement.getSuperConstructorArgumentsList() != null ?
+                statement.getSuperConstructorArgumentsList() : statement.getOtherConstructorArgumentsList()).getExpressionList().iterator();
+
+        while (iterator.hasNext()) {
+            isValidatingOtherConstructor = true;
+            expectedMethodType.addFormalArgumentType(iterator.next().visit(this));
+            isValidatingOtherConstructor = false;
+        }
+
+        expectedMethodType.addReturnType(((ClassClassType) mCurrentClassSymbol.getType()).getClassType());
+
+        MethodSymbol foundMethodSymbol = null;
+
+        BaseScope scope = statement.getSuperConstructorArgumentsList() != null ? mCurrentClassSymbol.getEnclosingScope() : mCurrentClassSymbol;
+
+        Symbol symbol = scope.getSymbolInCurrentScope("constructor");
+
+        if (symbol instanceof MethodSymbol) {
+            while (symbol != null) {
+                MethodType foundMethodType = (MethodType) symbol.getType();
+
+                // Expected method and found method must be or must not be static
+                if ((expectedMethodType.getFormalArgumentTypes().size() == foundMethodType.getFormalArgumentTypes().size())) {
+                    Iterator<BaseType> expectedTypesIterator = expectedMethodType.getFormalArgumentTypes().iterator();
+                    Iterator<BaseType> foundTypesIterator = foundMethodType.getFormalArgumentTypes().iterator();
+
+                    boolean isSuitableMethod = true;
+
+                    // Check every actual and formal parameter. Find an appropriate method.
+                    while ((expectedTypesIterator.hasNext()) && (foundTypesIterator.hasNext())) {
+                        BaseType expectedType = expectedTypesIterator.next();
+                        BaseType foundType = foundTypesIterator.next();
+
+                        if (expectedType.isNil()) {
+                            if ((!foundType.isArray()) && (!foundType.isClass())) {
+                                isSuitableMethod = false;
+                                break;
+                            }
+                        } else {
+                            if (((expectedType.isInt()) || (expectedType.isChar()) || (expectedType.isBool()) || (expectedType.isArray())) && (!foundType.isEqual(expectedType))) {
+                                isSuitableMethod = false;
+                                break;
+                            }
+
+                            if ((expectedType.isClass()) && (!((ClassType) expectedType).isSubclassOf((ClassType) foundType))) {
+                                isSuitableMethod = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    // If a method exists in base class and has access modifier `public` or `protected` then it can be used in subclasses. Or if the method exists in the current class then everything is OK.
+                    if ((isSuitableMethod) && ((scope == mCurrentClassSymbol) || ((((MethodSymbol) symbol).isPublic()) || (((MethodSymbol) symbol).isProtected())))) {
+                        // Found method may be inherited method or overridden. If method is inherited then need to check formal arguments to prevent clashing of methods.
+                        // If method is overridden then everything is OK. Keep searching of other methods.
+                        if (foundMethodSymbol == null) {
+                            foundMethodSymbol = (MethodSymbol) symbol;
+                        } else {
+                            // Another method with the same formal parameters are found. It is an error.
+                            if (!expectedMethodType.isEqualFormalArguments((MethodType) foundMethodSymbol.getType())) {
+                                printErrorMessage(statement.getToken(), "Clash of constructors.");
+                                return;
+                            }
+                        }
+                    }
+                }
+
+                symbol = symbol.getNextSymbol();
+            }
+        }
+
+        if (foundMethodSymbol != null) {
+            statement.setOtherConstructorSymbol(foundMethodSymbol);
+        } else {
+            printErrorMessage(statement.getToken(), "Can not find a constructor for such arguments.");
+        }
     }
 
     protected void printErrorMessage(Token token, String message) {

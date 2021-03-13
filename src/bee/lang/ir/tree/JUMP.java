@@ -3,6 +3,7 @@ package bee.lang.ir.tree;
 import bee.lang.ir.Label;
 
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.LinkedList;
 
 public class JUMP extends IRStatement {
@@ -25,6 +26,23 @@ public class JUMP extends IRStatement {
 
     public LinkedList<Label> getTargets() {
         return mTargets;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+
+        Iterator<Label> iterator = mTargets.iterator();
+        if (iterator.hasNext()) {
+            sb.append(iterator.next());
+
+            while (iterator.hasNext()) {
+                sb.append(", ");
+                sb.append(iterator.next());
+            }
+        }
+
+        return "JUMP(" + mExpression + ", " + sb + ")";
     }
 
 }

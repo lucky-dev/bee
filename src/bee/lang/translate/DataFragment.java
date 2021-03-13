@@ -12,4 +12,9 @@ public class DataFragment extends Fragment {
         return mData;
     }
 
+    @Override
+    public String toString() {
+        return mData;
+    }
+
 }

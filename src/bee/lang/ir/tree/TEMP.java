@@ -14,4 +14,9 @@ public class TEMP extends IRExpression {
         return mTemp;
     }
 
+    @Override
+    public String toString() {
+        return "TEMP(" + mTemp + ")";
+    }
+
 }

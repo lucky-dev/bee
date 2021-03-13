@@ -18,4 +18,9 @@ public class MOVE extends IRStatement {
         return mSrc;
     }
 
+    @Override
+    public String toString() {
+        return "MOVE(" + mDst + ", " + mSrc + ")";
+    }
+
 }

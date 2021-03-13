@@ -12,4 +12,9 @@ public class EXP extends IRStatement {
         return mExpression;
     }
 
+    @Override
+    public String toString() {
+        return "EXP(" + mExpression + ")";
+    }
+
 }

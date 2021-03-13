@@ -12,4 +12,9 @@ public class CONST extends IRExpression {
         return mValue;
     }
 
+    @Override
+    public String toString() {
+        return "CONST(" + mValue + ")";
+    }
+
 }

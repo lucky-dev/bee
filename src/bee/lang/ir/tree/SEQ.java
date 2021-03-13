@@ -30,4 +30,9 @@ public class SEQ extends IRStatement {
         mRightStatement = rightStatement;
     }
 
+    @Override
+    public String toString() {
+        return "SEQ(" + mLeftStatement + ", " + mRightStatement + ")";
+    }
+
 }

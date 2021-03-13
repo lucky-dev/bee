@@ -15,6 +15,10 @@ public class StringLiteral extends Expression {
         mToken = token;
     }
 
+    public String getValue() {
+        return mToken.getValue();
+    }
+
     @Override
     public BaseType visit(TypeVisitor visitor) {
         return visitor.visit(this);

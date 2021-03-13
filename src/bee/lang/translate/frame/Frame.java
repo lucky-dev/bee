@@ -15,7 +15,7 @@ public abstract class Frame {
     protected Label mName;
 
     public abstract Frame newFrame(Label name, LinkedList<Boolean> args);
-    public abstract Access allocLocal(boolean isInFrame);
+    public abstract int allocLocal(boolean isInFrame);
     public abstract int getWordSize();
     public abstract Temp getFP();
     public abstract Temp getRV();

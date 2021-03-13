@@ -21,8 +21,6 @@ public class Main {
         validatingMethodsVisitor.visit(program);
         TypeCheckingVisitor typeCheckingVisitor = new TypeCheckingVisitor(scope);
         typeCheckingVisitor.visit(program);
-        ValidatingConstructorsVisitor validatingConstructorsVisitor = new ValidatingConstructorsVisitor(scope);
-        validatingConstructorsVisitor.visit(program);
         ValidatingLoopsVisitor validatingLoopsVisitor = new ValidatingLoopsVisitor();
         validatingLoopsVisitor.visit(program);
         NewLayoutsVisitor newLayoutsVisitor = new NewLayoutsVisitor(scope, symbolTableVisitor.getSortedListOfClasses());

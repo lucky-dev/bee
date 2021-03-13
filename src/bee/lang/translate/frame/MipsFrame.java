@@ -62,7 +62,7 @@ public class MipsFrame extends Frame {
         return mipsFrame;
     }
 
-    public Access allocLocal(boolean inFrame) {
+    public int allocLocal(boolean inFrame) {
         Access access;
 
         if (inFrame) {
@@ -74,7 +74,7 @@ public class MipsFrame extends Frame {
 
         mLocalVariables.add(access);
 
-        return access;
+        return mLocalVariables.size() - 1;
     }
 
     public int getWordSize() {

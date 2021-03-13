@@ -38,4 +38,9 @@ public class CJUMP extends IRStatement {
         return mLblFalse;
     }
 
+    @Override
+    public String toString() {
+        return "CJUMP(" + mTypeRelOp + ", " + mLeftExpression + ", " + mRightExpression + ", " + mLblTrue + ", " + mLblFalse + ")";
+    }
+
 }

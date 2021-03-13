@@ -8,4 +8,9 @@ public class MEM extends IRExpression {
         mExpression = expression;
     }
 
+    @Override
+    public String toString() {
+        return "MEM(" + mExpression.toString() + ")";
+    }
+
 }

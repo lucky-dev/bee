@@ -21,4 +21,9 @@ public class ProcedureFragment extends Fragment {
         return mFrame;
     }
 
+    @Override
+    public String toString() {
+        return mBody == null ? null : mBody.toString();
+    }
+
 }

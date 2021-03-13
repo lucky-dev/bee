@@ -14,4 +14,9 @@ public class NAME extends IRExpression {
         return mLabel;
     }
 
+    @Override
+    public String toString() {
+        return "NAME(" + mLabel + ")";
+    }
+
 }

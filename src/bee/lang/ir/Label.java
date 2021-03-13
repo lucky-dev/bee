@@ -5,6 +5,7 @@ import java.util.HashMap;
 public class Label {
 
     private static HashMap<String, Label> sLabels = new HashMap<>();
+    private static HashMap<String, String> sLabelsForStrings = new HashMap<>();
     private static int sCount = 0;
 
     private String mName;
@@ -14,7 +15,11 @@ public class Label {
     }
 
     private Label() {
-        this("L" + sCount++);
+        this("_L" + getId() + "_");
+    }
+
+    private static int getId() {
+        return sCount++;
     }
 
     public String getName() {
@@ -34,6 +39,23 @@ public class Label {
         }
 
         return label;
+    }
+
+    public static Label newLabelForString(String str) {
+        String lblName = sLabelsForStrings.get(str);
+        if (lblName != null) {
+            return sLabels.get(lblName);
+        } else {
+            Label label = new Label();
+            label.mName = "_str" + label.mName;
+            sLabelsForStrings.put(str, label.mName);
+            sLabels.put(label.mName, label);
+            return label;
+        }
+    }
+
+    public static boolean isLabelForString(String str) {
+        return sLabelsForStrings.containsKey(str);
     }
 
     @Override

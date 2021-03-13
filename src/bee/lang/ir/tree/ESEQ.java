@@ -18,4 +18,9 @@ public class ESEQ extends IRExpression {
         return mExpression;
     }
 
+    @Override
+    public String toString() {
+        return "ESEQ(" + mStatement + ", " + mExpression + ")";
+    }
+
 }
