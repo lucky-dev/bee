@@ -10,7 +10,7 @@ EBNF grammar
 Program -> { ClassDefinitionStatement }
 
 ClassDefinitionStatement -> 'class' IDENTIFIER [ ':' IDENTIFIER ] '{'
-    { AccessModifiers ( ConstructorDefinitionStatement | [ 'static' ] ( FieldDefinitionStatement | MethodDefinitionStatement ) ) }
+    { ( ( AccessModifiers ConstructorDefinitionStatement ) | ( ( ( [AccessModifiers] [ 'static' ] ) | ( [ 'static' ] [AccessModifiers] ) ) ( FieldDefinitionStatement | MethodDefinitionStatement ) ) ) }
 '}'
 
 FieldDefinitionStatement -> VariableDefinitionStatement
@@ -173,6 +173,23 @@ public class Parser {
         return program;
     }
 
+    private AccessModifier findAccessModifier() throws BaseParserException {
+        AccessModifier accessModifier = null;
+
+        if (isCurrentToken(TokenType.PROTECTED)) {
+            accessModifier = AccessModifier.PROTECTED;
+            match(TokenType.PROTECTED);
+        } else if (isCurrentToken(TokenType.PRIVATE)) {
+            accessModifier = AccessModifier.PRIVATE;
+            match(TokenType.PRIVATE);
+        } else if (isCurrentToken(TokenType.PUBLIC)) {
+            match(TokenType.PUBLIC);
+            accessModifier = AccessModifier.PUBLIC;
+        }
+
+        return accessModifier;
+    }
+
     private Statement classDefinitionStatement() throws BaseParserException {
         match(TokenType.CLASS);
 
@@ -196,20 +213,14 @@ public class Parser {
         Statements methodDefinitions = new Statements();
         Statements fieldDefinitions = new Statements();
 
-        while (isCurrentToken(TokenType.PUBLIC, TokenType.PROTECTED, TokenType.PRIVATE)) {
-            AccessModifier accessModifier;
-
-            if (isCurrentToken(TokenType.PROTECTED)) {
-                accessModifier = AccessModifier.PROTECTED;
-            } else if (isCurrentToken(TokenType.PRIVATE)) {
-                accessModifier = AccessModifier.PRIVATE;
-            } else {
-                accessModifier = AccessModifier.PUBLIC;
-            }
-
-            match(TokenType.PUBLIC, TokenType.PROTECTED, TokenType.PRIVATE);
+        while (!isCurrentToken(TokenType.R_BRACE)) {
+            AccessModifier accessModifier = findAccessModifier();
 
             if (isCurrentToken(TokenType.CONSTRUCTOR)) {
+                if (accessModifier == null) {
+                    accessModifier = AccessModifier.PUBLIC;
+                }
+
                 constructorDefinitions.addStatement(constructorDefinitionStatement(accessModifier));
             } else {
                 boolean isStatic = false;
@@ -217,11 +228,23 @@ public class Parser {
                 if (isCurrentToken(TokenType.STATIC)) {
                     match(TokenType.STATIC);
                     isStatic = true;
+
+                    if (accessModifier == null) {
+                        accessModifier = findAccessModifier();
+                    }
                 }
 
                 if (isCurrentToken(TokenType.VAR, TokenType.CONST)) {
+                    if (accessModifier == null) {
+                        accessModifier = AccessModifier.PRIVATE;
+                    }
+
                     fieldDefinitions.addStatement(fieldDefinitionStatement(accessModifier, isStatic));
                 } else {
+                    if (accessModifier == null) {
+                        accessModifier = AccessModifier.PUBLIC;
+                    }
+
                     methodDefinitions.addStatement(methodDefinitionStatement(accessModifier, isStatic));
                 }
             }
