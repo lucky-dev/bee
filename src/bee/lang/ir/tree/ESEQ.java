@@ -1,5 +1,7 @@
 package bee.lang.ir.tree;
 
+import java.util.LinkedList;
+
 public class ESEQ extends IRExpression {
 
     private IRStatement mStatement;
@@ -21,6 +23,16 @@ public class ESEQ extends IRExpression {
     @Override
     public String toString() {
         return "ESEQ(" + mStatement + ", " + mExpression + ")";
+    }
+
+    @Override
+    public LinkedList<IRExpression> kids() {
+        return null;
+    }
+
+    @Override
+    public IRExpression build(LinkedList<IRExpression> kids) {
+        return null;
     }
 
 }

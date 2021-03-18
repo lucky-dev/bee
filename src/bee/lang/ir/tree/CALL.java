@@ -34,7 +34,20 @@ public class CALL extends IRExpression {
             }
         }
 
-        return "CALL(" + mFunction.toString() + ", " + sb + ")";
+        return "CALL(" + mFunction + ", " + sb + ")";
+    }
+
+    @Override
+    public LinkedList<IRExpression> kids() {
+        LinkedList<IRExpression> kids = new LinkedList<>();
+        kids.addAll(mArguments);
+        kids.addFirst(mFunction);
+        return kids;
+    }
+
+    @Override
+    public IRExpression build(LinkedList<IRExpression> kids) {
+        return new CALL(kids.removeFirst(), kids);
     }
 
 }

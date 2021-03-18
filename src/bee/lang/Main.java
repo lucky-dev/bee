@@ -1,13 +1,15 @@
 package bee.lang;
 
 import bee.lang.ast.Program;
+import bee.lang.ir.tree.IRStatement;
 import bee.lang.lexer.Lexer;
 import bee.lang.parser.Parser;
 import bee.lang.semanalysis.*;
 import bee.lang.symtable.BaseScope;
+import bee.lang.translate.*;
 import bee.lang.translate.frame.MipsFrame;
-import bee.lang.translate.NewIRTreeVisitor;
-import bee.lang.translate.NewLayoutsVisitor;
+
+import java.util.Iterator;
 
 public class Main {
 
@@ -27,6 +29,31 @@ public class Main {
         newLayoutsVisitor.visit(program);
         NewIRTreeVisitor newIRTreeVisitor = new NewIRTreeVisitor(new MipsFrame(), newLayoutsVisitor.getObjectLayout(), newLayoutsVisitor.getClassLayout(), newLayoutsVisitor.getVirtualTable());
         newIRTreeVisitor.visit(program);
+
+        printAllFragments(newIRTreeVisitor);
+    }
+
+    private static void printAllFragments(NewIRTreeVisitor newIRTreeVisitor) {
+        TransformIRTree transformIRTree = new TransformIRTree();
+
+        Iterator<Fragment> fragmentIterator = newIRTreeVisitor.getFragment().iterator();
+        while (fragmentIterator.hasNext()) {
+            Fragment fragment = fragmentIterator.next();
+
+            if (fragment instanceof DataFragment) {
+                System.out.println("=== START DATA ===");
+                System.out.println(fragment);
+                System.out.println("=== END DATA ===");
+            }
+
+            if (fragment instanceof ProcedureFragment) {
+                System.out.println("=== START PROCEDURE ===");
+                IRStatement newTree = transformIRTree.transformStatement(((ProcedureFragment) fragment).getBody());
+                System.out.println(newTree);
+                System.out.println(transformIRTree.linearizeTree(newTree));
+                System.out.println("=== END PROCEDURE ===");
+            }
+        }
     }
 
 }

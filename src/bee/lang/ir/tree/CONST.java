@@ -1,5 +1,7 @@
 package bee.lang.ir.tree;
 
+import java.util.LinkedList;
+
 public class CONST extends IRExpression {
 
     private int mValue;
@@ -15,6 +17,16 @@ public class CONST extends IRExpression {
     @Override
     public String toString() {
         return "CONST(" + mValue + ")";
+    }
+
+    @Override
+    public LinkedList<IRExpression> kids() {
+        return null;
+    }
+
+    @Override
+    public IRExpression build(LinkedList<IRExpression> kids) {
+        return this;
     }
 
 }

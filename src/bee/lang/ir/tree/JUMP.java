@@ -45,4 +45,16 @@ public class JUMP extends IRStatement {
         return "JUMP(" + mExpression + ", " + sb + ")";
     }
 
+    @Override
+    public LinkedList<IRExpression> kids() {
+        LinkedList<IRExpression> kids = new LinkedList<>();
+        kids.add(mExpression);
+        return kids;
+    }
+
+    @Override
+    public IRStatement build(LinkedList<IRExpression> kids) {
+        return new JUMP(kids.getFirst(), mTargets);
+    }
+
 }

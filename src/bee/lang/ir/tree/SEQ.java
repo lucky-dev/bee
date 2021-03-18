@@ -1,5 +1,7 @@
 package bee.lang.ir.tree;
 
+import java.util.LinkedList;
+
 public class SEQ extends IRStatement {
 
     private IRStatement mLeftStatement;
@@ -33,6 +35,16 @@ public class SEQ extends IRStatement {
     @Override
     public String toString() {
         return "SEQ(" + mLeftStatement + ", " + mRightStatement + ")";
+    }
+
+    @Override
+    public LinkedList<IRExpression> kids() {
+        return null;
+    }
+
+    @Override
+    public IRStatement build(LinkedList<IRExpression> kids) {
+        return null;
     }
 
 }

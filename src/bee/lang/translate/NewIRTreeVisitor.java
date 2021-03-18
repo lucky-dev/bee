@@ -101,6 +101,10 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         mListArgs = new HashMap<>();
     }
 
+    public LinkedList<Fragment> getFragment() {
+        return mListFragments;
+    }
+
     @Override
     public WrapperIRExpression visit(Add expression) {
         WrapperIRExpression leftExpression = expression.getLeftExpression().visit(this);
@@ -272,14 +276,28 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         // Create a new method like this '_<class name>_init_static_fields'. This method is used to initialize all static fields.
         // This method will be called immediately for loaded class.
         mInitStaticFieldsFrame = mFrame.newFrame(Label.newLabel(String.format(FUNCTION_INIT_STATIC_FIELDS, className)), new LinkedList<>());
-        mListFragments.add(new ProcedureFragment(mBodyMethodInitStaticFields, mCurrentFrame));
 
         // Create a new method like this '_<class name>_init_fields'. This method is used to initialize all non-static fields.
         // This method will be called by a constructor after calling a super constructor.
         mInitFieldsFrame = mFrame.newFrame(Label.newLabel(String.format(FUNCTION_INIT_FIELDS, className)), args(false));
-        mListFragments.add(new ProcedureFragment(mBodyMethodInitFields, mCurrentFrame));
 
         statement.getFieldDefinitions().visit(this);
+
+        if (mBodyMethodInitStaticFields == null) {
+            mBodyMethodInitStaticFields = new EXP(new CONST(0));
+        } else {
+            mLastStatementBodyMethodInitStaticFields.setRightStatement(new EXP(new CONST(0)));
+        }
+
+        if (mBodyMethodInitFields == null) {
+            mBodyMethodInitFields = new EXP(new CONST(0));
+        } else {
+            mLastStatementBodyMethodInitFields.setRightStatement(new EXP(new CONST(0)));
+        }
+
+        // Creating bodies for '_<class name>_init_static_fields' and '_<class name>_init_fields' is performed during processing of fields definitions.
+        mListFragments.add(new ProcedureFragment(mBodyMethodInitStaticFields, mCurrentFrame));
+        mListFragments.add(new ProcedureFragment(mBodyMethodInitFields, mCurrentFrame));
 
         statement.getConstructorDefinitions().visit(this);
         statement.getMethodDefinitions().visit(this);
@@ -312,7 +330,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
         WrapperIRExpression tree = statement.getBody().visit(this);
 
-        IRStatement callsOtherConstructors = null;
+        IRStatement callsOtherConstructors;
 
         if (statement.getSuperConstructorArgumentsList() != null) {
             IRStatement callInitFields = new EXP(new CALL(new NAME(Label.newLabel(String.format(FUNCTION_INIT_FIELDS, mCurrentClassSymbol.getIdentifier().getName()))), args(mCurrentFrame.getFormalArg(0).exp(new TEMP(mCurrentFrame.getFP())))));
@@ -336,7 +354,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         tree = new Nx(
                 new SEQ(
                         callsOtherConstructors,
-                        (tree != null ? tree.unNx() : null)
+                        tree != null ? tree.unNx() : new EXP(new CONST(0))
                 )
         );
 
@@ -379,7 +397,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
                         new SEQ(
                                 new SEQ(
                                         new LABEL(lblBeginLoop),
-                                        body != null ? body.unNx() : null
+                                        body != null ? body.unNx() : new EXP(new CONST(0))
                                 ),
                                 new CJUMP(TypeRelOp.EQ, expression.unEx(), new CONST(1), lblBeginLoop, lblEnd)
                         ),
@@ -498,7 +516,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
                             new SEQ(
                                     new LABEL(lblTrue),
                                     new SEQ(
-                                            thenStatement != null ? thenStatement.unNx() : null,
+                                            thenStatement != null ? thenStatement.unNx() : new EXP(new CONST(0)),
                                             new LABEL(lblFalse)
                                     )
                             )
@@ -515,13 +533,13 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
                             new SEQ(
                                     new LABEL(lblTrue),
                                     new SEQ(
-                                            thenStatement != null ? thenStatement.unNx() : null,
+                                            thenStatement != null ? thenStatement.unNx() : new EXP(new CONST(0)),
                                             new SEQ(
                                                     new JUMP(lblEnd),
                                                     new SEQ(
                                                             new LABEL(lblFalse),
                                                             new SEQ(
-                                                                    elseStatement != null ? elseStatement.unNx() : null,
+                                                                    elseStatement != null ? elseStatement.unNx() : new EXP(new CONST(0)),
                                                                     new LABEL(lblEnd)
                                                             )
                                                     )
@@ -726,23 +744,6 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
             iterator.next().visit(this);
         }
 
-        Iterator<Fragment> fragmentIterator = mListFragments.iterator();
-        while (fragmentIterator.hasNext()) {
-            Fragment fragment = fragmentIterator.next();
-
-            if (fragment instanceof DataFragment) {
-                System.out.println("=== START DATA ===");
-                System.out.println(fragment);
-                System.out.println("=== END DATA ===");
-            }
-
-            if (fragment instanceof ProcedureFragment) {
-                System.out.println("=== START PROCEDURE ===");
-                System.out.println(fragment);
-                System.out.println("=== END PROCEDURE ===");
-            }
-        }
-
         return null;
     }
 
@@ -764,24 +765,26 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         SEQ listSeqs = null;
         SEQ currentSeq = null;
         while (iterator.hasNext()) {
-            if (listSeqs == null) {
-                listSeqs = new SEQ();
-                currentSeq = listSeqs;
-            } else {
-                SEQ newSeq = new SEQ();
-                currentSeq.setLeftStatement(newSeq);
-                currentSeq = newSeq;
-            }
-
-            Statement item = iterator.next();
-            WrapperIRExpression irExpression = item.visit(this);
-
+            WrapperIRExpression irExpression = iterator.next().visit(this);
             if (irExpression != null) {
+                if (listSeqs == null) {
+                    listSeqs = new SEQ();
+                    currentSeq = listSeqs;
+                } else {
+                    SEQ newSeq = new SEQ();
+                    currentSeq.setRightStatement(newSeq);
+                    currentSeq = newSeq;
+                }
+
                 currentSeq.setLeftStatement(irExpression.unNx());
             }
         }
 
-        return listSeqs != null ? new Nx(listSeqs) : null;
+        if (currentSeq != null) {
+            currentSeq.setRightStatement(new EXP(new CONST(0)));
+        }
+
+        return listSeqs != null ? new Nx(listSeqs) : new Nx(new EXP(new CONST(0)));
     }
 
     @Override
@@ -939,7 +942,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
                                 new SEQ(
                                         new LABEL(lblTrue),
                                         new SEQ(
-                                                body != null ? body.unNx() : null,
+                                                body != null ? body.unNx() : new EXP(new CONST(0)),
                                                 new SEQ(
                                                         new JUMP(lblBeginLoop),
                                                         new LABEL(lblEnd)

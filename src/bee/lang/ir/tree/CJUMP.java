@@ -2,6 +2,8 @@ package bee.lang.ir.tree;
 
 import bee.lang.ir.Label;
 
+import java.util.LinkedList;
+
 public class CJUMP extends IRStatement {
 
     private TypeRelOp mTypeRelOp;
@@ -41,6 +43,19 @@ public class CJUMP extends IRStatement {
     @Override
     public String toString() {
         return "CJUMP(" + mTypeRelOp + ", " + mLeftExpression + ", " + mRightExpression + ", " + mLblTrue + ", " + mLblFalse + ")";
+    }
+
+    @Override
+    public LinkedList<IRExpression> kids() {
+        LinkedList<IRExpression> kids = new LinkedList<>();
+        kids.add(mLeftExpression);
+        kids.add(mRightExpression);
+        return kids;
+    }
+
+    @Override
+    public IRStatement build(LinkedList<IRExpression> kids) {
+        return new CJUMP(mTypeRelOp, kids.getFirst(), kids.getLast(), mLblTrue, mLblFalse);
     }
 
 }
