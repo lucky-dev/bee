@@ -32,17 +32,21 @@ public class JUMP extends IRStatement {
     public String toString() {
         StringBuilder sb = new StringBuilder();
 
-        Iterator<Label> iterator = mTargets.iterator();
-        if (iterator.hasNext()) {
-            sb.append(iterator.next());
-
-            while (iterator.hasNext()) {
-                sb.append(", ");
+        if (mTargets.size() == 1) {
+            return "JUMP(" + mExpression + ")";
+        } else {
+            Iterator<Label> iterator = mTargets.iterator();
+            if (iterator.hasNext()) {
                 sb.append(iterator.next());
-            }
-        }
 
-        return "JUMP(" + mExpression + ", " + sb + ")";
+                while (iterator.hasNext()) {
+                    sb.append(", ");
+                    sb.append(iterator.next());
+                }
+            }
+
+            return "JUMP(" + mExpression + ", " + sb + ")";
+        }
     }
 
     @Override

@@ -82,7 +82,8 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
     private SEQ mLastStatementBodyMethodInitStaticFields;
     private HashMap<String, Integer> mListLocalVars;
     private HashMap<String, Integer> mListArgs;
-    private Label mMethodEndLbl;
+    private Label mMethodReturnLbl;
+    private boolean isReturnStatement;
 
     public NewIRTreeVisitor(Frame frame,
                             HashMap<String, EntityLayout> objectLayouts,
@@ -296,8 +297,8 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         }
 
         // Creating bodies for '_<class name>_init_static_fields' and '_<class name>_init_fields' is performed during processing of fields definitions.
-        mListFragments.add(new ProcedureFragment(mBodyMethodInitStaticFields, mCurrentFrame));
-        mListFragments.add(new ProcedureFragment(mBodyMethodInitFields, mCurrentFrame));
+        mListFragments.add(new ProcedureFragment(mInitStaticFieldsFrame.procEntryExit1(mBodyMethodInitStaticFields), mInitStaticFieldsFrame));
+        mListFragments.add(new ProcedureFragment(mInitFieldsFrame.procEntryExit1(mBodyMethodInitFields), mInitFieldsFrame));
 
         statement.getConstructorDefinitions().visit(this);
         statement.getMethodDefinitions().visit(this);
@@ -358,7 +359,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
                 )
         );
 
-        mListFragments.add(new ProcedureFragment(tree.unNx(), mCurrentFrame));
+        mListFragments.add(new ProcedureFragment(mCurrentFrame.procEntryExit1(tree.unNx()), mCurrentFrame));
 
         mCurrentFrame = null;
 
@@ -594,11 +595,13 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
         statement.getFormalArgumentsList().visit(this);
 
-        mMethodEndLbl = Label.newLabel("_" + methodName + "_end_");
+        mMethodReturnLbl = Label.newLabel("_" + methodName + "_return_");
+
+        isReturnStatement = false;
 
         IRStatement irExpression = statement.getBody().visit(this).unNx();
 
-        mListFragments.add(new ProcedureFragment(new SEQ(irExpression, new LABEL(mMethodEndLbl)), mCurrentFrame));
+        mListFragments.add(new ProcedureFragment(mCurrentFrame.procEntryExit1(isReturnStatement ? new SEQ(irExpression, new LABEL(mMethodReturnLbl)) : irExpression), mCurrentFrame));
 
         mCurrentFrame = null;
 
@@ -749,12 +752,14 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
     @Override
     public WrapperIRExpression visit(Return statement) {
+        isReturnStatement = true;
+
         if (statement.getExpression() == null) {
-            return new Nx(new JUMP(mMethodEndLbl));
+            return new Nx(new JUMP(mMethodReturnLbl));
         } else {
             return new Nx(new SEQ(
                     new MOVE(new TEMP(mCurrentFrame.getRV()), statement.getExpression().visit(this).unEx()),
-                    new JUMP(mMethodEndLbl)));
+                    new JUMP(mMethodReturnLbl)));
         }
     }
 

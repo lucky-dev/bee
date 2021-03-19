@@ -10,6 +10,7 @@ import bee.lang.translate.*;
 import bee.lang.translate.frame.MipsFrame;
 
 import java.util.Iterator;
+import java.util.LinkedList;
 
 public class Main {
 
@@ -29,11 +30,12 @@ public class Main {
         newLayoutsVisitor.visit(program);
         NewIRTreeVisitor newIRTreeVisitor = new NewIRTreeVisitor(new MipsFrame(), newLayoutsVisitor.getObjectLayout(), newLayoutsVisitor.getClassLayout(), newLayoutsVisitor.getVirtualTable());
         newIRTreeVisitor.visit(program);
+        ControlFlowAnalyzing controlFlowAnalyzing = new ControlFlowAnalyzing();
 
-        printAllFragments(newIRTreeVisitor);
+        printAllFragments(newIRTreeVisitor, controlFlowAnalyzing);
     }
 
-    private static void printAllFragments(NewIRTreeVisitor newIRTreeVisitor) {
+    private static void printAllFragments(NewIRTreeVisitor newIRTreeVisitor, ControlFlowAnalyzing controlFlowAnalyzing) {
         TransformIRTree transformIRTree = new TransformIRTree();
 
         Iterator<Fragment> fragmentIterator = newIRTreeVisitor.getFragment().iterator();
@@ -48,12 +50,17 @@ public class Main {
 
             if (fragment instanceof ProcedureFragment) {
                 System.out.println("=== START PROCEDURE ===");
+//                System.out.println(((ProcedureFragment) fragment).getBody());
                 IRStatement newTree = transformIRTree.transformStatement(((ProcedureFragment) fragment).getBody());
-                System.out.println(newTree);
-                System.out.println(transformIRTree.linearizeTree(newTree));
+//                System.out.println(newTree);
+                LinkedList<IRStatement> linearizedTree = transformIRTree.linearizeTree(newTree);
+                System.out.println(linearizedTree);
+                controlFlowAnalyzing.createBasicBlocks(((ProcedureFragment) fragment).getFrame().getProcedureName(), linearizedTree);
                 System.out.println("=== END PROCEDURE ===");
             }
         }
+
+        System.out.println(controlFlowAnalyzing.getBasicBlocks());
     }
 
 }

@@ -82,10 +82,16 @@ public class MipsFrame extends Frame {
     }
 
     @Override
+    public String getProcedureName() {
+        return mName.getName();
+    }
+
+    @Override
     public Temp getFP() {
         return mFP;
     }
 
+    @Override
     public Temp getRV() {
         return mRV;
     }

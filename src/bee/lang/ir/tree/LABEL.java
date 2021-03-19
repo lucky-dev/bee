@@ -12,6 +12,10 @@ public class LABEL extends IRStatement {
         mLabel = label;
     }
 
+    public Label getLabel() {
+        return mLabel;
+    }
+
     @Override
     public String toString() {
         return "LABEL(" + mLabel.toString() + ")";

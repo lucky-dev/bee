@@ -37,27 +37,22 @@ public class TransformIRTree {
             }
         }
 
-        ListsPair listsPair;
+        SELPair SELPair;
         IRStatement irStatement;
         if ((statement instanceof MOVE) && (((MOVE) statement).getDst() instanceof TEMP) && (((MOVE) statement).getSrc() instanceof CALL)) {
             IRExpression call = ((MOVE) statement).getSrc();
-            listsPair = reorder(call.kids());
-            irStatement = new MOVE(((MOVE) statement).getDst(), call.build(listsPair.getListExpressions()));
+            SELPair = reorder(call.kids());
+            irStatement = new MOVE(((MOVE) statement).getDst(), call.build(SELPair.getListExpressions()));
         } else if ((statement instanceof EXP) && (((EXP) statement).getExpression() instanceof CALL)) {
             IRExpression call = ((EXP) statement).getExpression();
-            listsPair = reorder(call.kids());
-            irStatement = new EXP(call.build(listsPair.getListExpressions()));
+            SELPair = reorder(call.kids());
+            irStatement = new EXP(call.build(SELPair.getListExpressions()));
         } else {
-            listsPair = reorder(statement.kids());
-            irStatement = statement.build(listsPair.getListExpressions());
+            SELPair = reorder(statement.kids());
+            irStatement = statement.build(SELPair.getListExpressions());
         }
 
-        Iterator<IRStatement> iterator = listsPair.getListStatements().descendingIterator();
-        while (iterator.hasNext()) {
-            irStatement = new SEQ(iterator.next(), irStatement);
-        }
-
-        return irStatement;
+        return isNop(SELPair.getStatement()) ? irStatement : new SEQ(SELPair.getStatement(), irStatement);
     }
 
     public IRExpression transformExpression(IRExpression expression) {
@@ -90,19 +85,9 @@ public class TransformIRTree {
             return transformExpression(new ESEQ(new MOVE(temp, call), temp));
         }
 
-        ListsPair listsPair = reorder(expression.kids());
+        SELPair SELPair = reorder(expression.kids());
 
-        LinkedList<IRStatement> listStatements = listsPair.getListStatements();
-        LinkedList<IRExpression> listExpressions = listsPair.getListExpressions();
-
-        IRExpression irExpression = expression.build(listExpressions);
-
-        Iterator<IRStatement> iterator = listStatements.descendingIterator();
-        while (iterator.hasNext()) {
-            irExpression = new ESEQ(iterator.next(), irExpression);
-        }
-
-        return irExpression;
+        return isNop(SELPair.getStatement()) ? expression.build(SELPair.getListExpressions()) : new ESEQ(SELPair.getStatement(), expression.build(SELPair.getListExpressions()));
     }
 
     public LinkedList<IRStatement> linearizeTree(IRStatement irStatement) {
@@ -111,9 +96,9 @@ public class TransformIRTree {
         return listStatements;
     }
 
-    private ListsPair reorder(LinkedList<IRExpression> kids) {
+    private SELPair reorder(LinkedList<IRExpression> kids) {
         if (kids == null) {
-            return new ListsPair();
+            return new SELPair();
         }
 
         ArrayList<IRExpression> listTransformedExpressions = new ArrayList<>();
@@ -168,7 +153,19 @@ public class TransformIRTree {
             }
         }
 
-        return new ListsPair(listStatements, listExpressions);
+        IRStatement statement;
+        Iterator<IRStatement> iterator = listStatements.descendingIterator();
+        if (iterator.hasNext()) {
+            // Create single statement SEQ.
+            statement = iterator.next();
+            while (iterator.hasNext()) {
+                statement = new SEQ(iterator.next(), statement);
+            }
+        } else {
+            statement = new EXP(new CONST(0));
+        }
+
+        return new SELPair(statement, listExpressions);
     }
 
     // This function checks statement and expression and decides it is possible or not possible to move statement before expression.
@@ -183,22 +180,24 @@ public class TransformIRTree {
         return ((statement instanceof EXP) && (((EXP) statement).getExpression() instanceof CONST));
     }
 
-    private static class ListsPair {
+    private static class SELPair {
 
-        private LinkedList<IRStatement> mListStatements;
+        // 'mStatement' contains all statements which must be executed before expressions in the list 'mListExpressions'.
+        // 'mListExpressions' contains expressions without ESEQ nodes.
+        private IRStatement mStatement;
         private LinkedList<IRExpression> mListExpressions;
 
-        public ListsPair(LinkedList<IRStatement> listStatements, LinkedList<IRExpression> listExpressions) {
-            mListStatements = listStatements;
+        public SELPair(IRStatement statement, LinkedList<IRExpression> listExpressions) {
+            mStatement = statement;
             mListExpressions = listExpressions;
         }
 
-        public ListsPair() {
-            this(new LinkedList<>(), new LinkedList<>());
+        public SELPair() {
+            this(new EXP(new CONST(0)), new LinkedList<>());
         }
 
-        public LinkedList<IRStatement> getListStatements() {
-            return mListStatements;
+        public IRStatement getStatement() {
+            return mStatement;
         }
 
         public LinkedList<IRExpression> getListExpressions() {

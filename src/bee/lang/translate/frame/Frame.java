@@ -16,6 +16,7 @@ public abstract class Frame {
 
     public abstract Frame newFrame(Label name, LinkedList<Boolean> args);
     public abstract int allocLocal(boolean isInFrame);
+    public abstract String getProcedureName();
     public abstract int getWordSize();
     public abstract Temp getFP();
     public abstract Temp getRV();
