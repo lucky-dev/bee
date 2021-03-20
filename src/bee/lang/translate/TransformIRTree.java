@@ -37,22 +37,22 @@ public class TransformIRTree {
             }
         }
 
-        SELPair SELPair;
+        SELPair selPair;
         IRStatement irStatement;
         if ((statement instanceof MOVE) && (((MOVE) statement).getDst() instanceof TEMP) && (((MOVE) statement).getSrc() instanceof CALL)) {
             IRExpression call = ((MOVE) statement).getSrc();
-            SELPair = reorder(call.kids());
-            irStatement = new MOVE(((MOVE) statement).getDst(), call.build(SELPair.getListExpressions()));
+            selPair = reorder(call.kids());
+            irStatement = new MOVE(((MOVE) statement).getDst(), call.build(selPair.getListExpressions()));
         } else if ((statement instanceof EXP) && (((EXP) statement).getExpression() instanceof CALL)) {
             IRExpression call = ((EXP) statement).getExpression();
-            SELPair = reorder(call.kids());
-            irStatement = new EXP(call.build(SELPair.getListExpressions()));
+            selPair = reorder(call.kids());
+            irStatement = new EXP(call.build(selPair.getListExpressions()));
         } else {
-            SELPair = reorder(statement.kids());
-            irStatement = statement.build(SELPair.getListExpressions());
+            selPair = reorder(statement.kids());
+            irStatement = statement.build(selPair.getListExpressions());
         }
 
-        return isNop(SELPair.getStatement()) ? irStatement : new SEQ(SELPair.getStatement(), irStatement);
+        return isNop(selPair.getStatement()) ? irStatement : new SEQ(selPair.getStatement(), irStatement);
     }
 
     public IRExpression transformExpression(IRExpression expression) {
@@ -85,9 +85,9 @@ public class TransformIRTree {
             return transformExpression(new ESEQ(new MOVE(temp, call), temp));
         }
 
-        SELPair SELPair = reorder(expression.kids());
+        SELPair selPair = reorder(expression.kids());
 
-        return isNop(SELPair.getStatement()) ? expression.build(SELPair.getListExpressions()) : new ESEQ(SELPair.getStatement(), expression.build(SELPair.getListExpressions()));
+        return isNop(selPair.getStatement()) ? expression.build(selPair.getListExpressions()) : new ESEQ(selPair.getStatement(), expression.build(selPair.getListExpressions()));
     }
 
     public LinkedList<IRStatement> linearizeTree(IRStatement irStatement) {

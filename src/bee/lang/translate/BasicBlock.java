@@ -16,8 +16,8 @@ public class BasicBlock {
         mListStatements.add(statement);
     }
 
-    public IRStatement getLastStatement() {
-        return mListStatements.getLast();
+    public LinkedList<IRStatement> getStatements() {
+        return mListStatements;
     }
 
     public boolean isEmpty() {

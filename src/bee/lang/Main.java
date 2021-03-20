@@ -30,12 +30,11 @@ public class Main {
         newLayoutsVisitor.visit(program);
         NewIRTreeVisitor newIRTreeVisitor = new NewIRTreeVisitor(new MipsFrame(), newLayoutsVisitor.getObjectLayout(), newLayoutsVisitor.getClassLayout(), newLayoutsVisitor.getVirtualTable());
         newIRTreeVisitor.visit(program);
-        ControlFlowAnalyzing controlFlowAnalyzing = new ControlFlowAnalyzing();
 
-        printAllFragments(newIRTreeVisitor, controlFlowAnalyzing);
+        printAllFragments(newIRTreeVisitor);
     }
 
-    private static void printAllFragments(NewIRTreeVisitor newIRTreeVisitor, ControlFlowAnalyzing controlFlowAnalyzing) {
+    private static void printAllFragments(NewIRTreeVisitor newIRTreeVisitor) {
         TransformIRTree transformIRTree = new TransformIRTree();
 
         Iterator<Fragment> fragmentIterator = newIRTreeVisitor.getFragment().iterator();
@@ -50,17 +49,17 @@ public class Main {
 
             if (fragment instanceof ProcedureFragment) {
                 System.out.println("=== START PROCEDURE ===");
-//                System.out.println(((ProcedureFragment) fragment).getBody());
-                IRStatement newTree = transformIRTree.transformStatement(((ProcedureFragment) fragment).getBody());
-//                System.out.println(newTree);
-                LinkedList<IRStatement> linearizedTree = transformIRTree.linearizeTree(newTree);
-                System.out.println(linearizedTree);
+                IRStatement procedureBody = ((ProcedureFragment) fragment).getBody();
+//                System.out.println(procedureBody);
+                LinkedList<IRStatement> linearizedTree = transformIRTree.linearizeTree(transformIRTree.transformStatement(procedureBody));
+//                System.out.println(linearizedTree);
+                ControlFlowAnalyzing controlFlowAnalyzing = new ControlFlowAnalyzing();
                 controlFlowAnalyzing.createBasicBlocks(((ProcedureFragment) fragment).getFrame().getProcedureName(), linearizedTree);
+                System.out.println(controlFlowAnalyzing.getBasicBlocks());
+                System.out.println(controlFlowAnalyzing.traceBasicBlocks());
                 System.out.println("=== END PROCEDURE ===");
             }
         }
-
-        System.out.println(controlFlowAnalyzing.getBasicBlocks());
     }
 
 }

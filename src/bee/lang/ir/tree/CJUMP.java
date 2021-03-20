@@ -20,6 +20,10 @@ public class CJUMP extends IRStatement {
         mLblFalse = lblFalse;
     }
 
+    public void setTypeRelOp(TypeRelOp typeRelOp) {
+        mTypeRelOp = typeRelOp;
+    }
+
     public TypeRelOp getTypeRelOp() {
         return mTypeRelOp;
     }
@@ -32,8 +36,16 @@ public class CJUMP extends IRStatement {
         return mRightExpression;
     }
 
+    public void setLblTrue(Label lblTrue) {
+        mLblTrue = lblTrue;
+    }
+
     public Label getLblTrue() {
         return mLblTrue;
+    }
+
+    public void setLblFalse(Label lblFalse) {
+        mLblFalse = lblFalse;
     }
 
     public Label getLblFalse() {
