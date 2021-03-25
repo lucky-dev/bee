@@ -1,5 +1,6 @@
 package bee.lang;
 
+import bee.lang.assembly.AsmInstruction;
 import bee.lang.ast.Program;
 import bee.lang.ir.tree.IRStatement;
 import bee.lang.lexer.Lexer;
@@ -41,22 +42,25 @@ public class Main {
         while (fragmentIterator.hasNext()) {
             Fragment fragment = fragmentIterator.next();
 
-            if (fragment instanceof DataFragment) {
-                System.out.println("=== START DATA ===");
-                System.out.println(fragment);
-                System.out.println("=== END DATA ===");
-            }
+//            if (fragment instanceof DataFragment) {
+//                System.out.println("=== START DATA ===");
+//                System.out.println(fragment);
+//                System.out.println("=== END DATA ===");
+//            }
 
             if (fragment instanceof ProcedureFragment) {
                 System.out.println("=== START PROCEDURE ===");
-                IRStatement procedureBody = ((ProcedureFragment) fragment).getBody();
-//                System.out.println(procedureBody);
-                LinkedList<IRStatement> linearizedTree = transformIRTree.linearizeTree(transformIRTree.transformStatement(procedureBody));
-//                System.out.println(linearizedTree);
-                ControlFlowAnalyzing controlFlowAnalyzing = new ControlFlowAnalyzing();
-                controlFlowAnalyzing.createBasicBlocks(((ProcedureFragment) fragment).getFrame().getProcedureName(), linearizedTree);
-                System.out.println(controlFlowAnalyzing.getBasicBlocks());
-                System.out.println(controlFlowAnalyzing.traceBasicBlocks());
+                ProcedureFragment procedureFragment = (ProcedureFragment) fragment;
+                IRStatement procedureBody = procedureFragment.getBody();
+                IRStatement canonicalTrees = transformIRTree.transformStatement(procedureBody);
+                LinkedList<IRStatement> linearizedTree = transformIRTree.linearizeTree(canonicalTrees);
+                ControlFlowAnalyzing controlFlowAnalyzing = new ControlFlowAnalyzing(procedureFragment.getFrame().getProcedureName());
+                LinkedList<IRStatement> tracedTrees = controlFlowAnalyzing.trace(linearizedTree);
+                for (IRStatement statement : tracedTrees) {
+                    for (AsmInstruction asmInstruction : procedureFragment.getFrame().codegen(statement)) {
+                        System.out.println(asmInstruction.format(procedureFragment.getFrame()));
+                    }
+                }
                 System.out.println("=== END PROCEDURE ===");
             }
         }

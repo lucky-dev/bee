@@ -303,6 +303,11 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         statement.getConstructorDefinitions().visit(this);
         statement.getMethodDefinitions().visit(this);
 
+        mBodyMethodInitStaticFields = null;
+        mLastStatementBodyMethodInitStaticFields = null;
+        mBodyMethodInitFields = null;
+        mLastStatementBodyMethodInitFields = null;
+
         mObjectLayout = null;
         mMethodLayout = null;
         mClassLayout = null;

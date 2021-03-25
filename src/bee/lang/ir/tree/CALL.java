@@ -40,8 +40,8 @@ public class CALL extends IRExpression {
     @Override
     public LinkedList<IRExpression> kids() {
         LinkedList<IRExpression> kids = new LinkedList<>();
+        kids.add(mFunction);
         kids.addAll(mArguments);
-        kids.addFirst(mFunction);
         return kids;
     }
 

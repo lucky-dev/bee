@@ -7,6 +7,7 @@ import bee.lang.symtable.*;
 import bee.lang.visitors.TypeVisitor;
 
 import java.util.Iterator;
+import java.util.LinkedList;
 
 public class TypeCheckingVisitor implements TypeVisitor {
 
@@ -185,7 +186,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
             expectedMethodType.addFormalArgumentType(iterator.next().visit(this));
         }
 
-        MethodSymbol foundMethodSymbol = null;
+        LinkedList<MethodSymbol> foundMethodSymbols = new LinkedList<>();
 
         BaseScope scope = classSymbol;
 
@@ -228,18 +229,9 @@ public class TypeCheckingVisitor implements TypeVisitor {
                         }
 
                         // If a method exists in base class and has access modifier `public` or `protected` then it can be used in subclasses. Or if the method exists in the current class then everything is OK.
+                        // Create candidate set of methods.
                         if ((isSuitableMethod) && ((scope == classSymbol) || ((((MethodSymbol) symbol).isPublic()) || (((MethodSymbol) symbol).isProtected())))) {
-                            // Found method may be inherited method or overridden. If method is inherited then need to check formal arguments to prevent clashing of methods.
-                            // If method is overridden then everything is OK. Keep searching of other methods.
-                            if (foundMethodSymbol == null) {
-                                foundMethodSymbol = (MethodSymbol) symbol;
-                            } else {
-                                // Another method with the same formal parameters are found. It is an error.
-                                if (!expectedMethodType.isEqualFormalArguments((MethodType) foundMethodSymbol.getType())) {
-                                    printErrorMessage(expression.getIdentifier().getToken(), "Clash of methods.");
-                                    return Type.Error;
-                                }
-                            }
+                            foundMethodSymbols.add((MethodSymbol) symbol);
                         }
                     }
 
@@ -250,32 +242,29 @@ public class TypeCheckingVisitor implements TypeVisitor {
             scope = scope.getEnclosingScope();
         }
 
-        if (foundMethodSymbol != null) {
+        MethodSymbol suitableMethod = findAppropriateMethod(foundMethodSymbols);
+
+        if ((suitableMethod == null) && (!foundMethodSymbols.isEmpty())) {
+            printErrorMessage(expression.getIdentifier().getToken(), "This call of the method '" + expression.getIdentifier().getName() + "' is ambiguous.");
+            return Type.Error;
+        }
+
+        if (suitableMethod != null) {
             // Need to check where code calls this method.
-            if (foundMethodSymbol.isProtected()) {
-                // Only the current class and subclasses have access to protected methods.
-                if (!(((ClassClassType) mCurrentClassSymbol.getType()).getClassType().isSubclassOf(((ClassClassType) classSymbol.getType()).getClassType()))) {
-                    printErrorMessage(expression.getIdentifier().getToken(), "Can not get access to the method '" + foundMethodSymbol.getIdentifier().getName() + "'.");
-                    return Type.Error;
-                }
-            }
-
-            if (foundMethodSymbol.isPrivate()) {
-                // Only the current class has access to private methods.
-                if (!((((ClassClassType) classSymbol.getType()).getClassType()).isEqual(((ClassClassType) mCurrentClassSymbol.getType()).getClassType()))) {
-                    printErrorMessage(expression.getIdentifier().getToken(), "Can not get access to the method '" + foundMethodSymbol.getIdentifier().getName() + "'.");
-                    return Type.Error;
-                }
-            }
-
-            expression.setSymbol(foundMethodSymbol);
-
-            if ((isValidatingOtherConstructor) && (!foundMethodSymbol.isStatic())) {
-                printErrorMessage(expression.getIdentifier().getToken(), "Cannot reference '" + foundMethodSymbol.getIdentifier().getName() +"' in calling other constructor.");
+            if (((suitableMethod.isPrivate()) || (suitableMethod.isProtected())) &&
+                    (!(classSymbol.getType().isEqual(mCurrentClassSymbol.getType())))) {
+                printErrorMessage(expression.getIdentifier().getToken(), "Can not get access to the method '" + suitableMethod.getIdentifier().getName() + "'.");
                 return Type.Error;
             }
 
-            return ((MethodType) foundMethodSymbol.getType()).getReturnType();
+            expression.setSymbol(suitableMethod);
+
+            if ((isValidatingOtherConstructor) && (!suitableMethod.isStatic())) {
+                printErrorMessage(expression.getIdentifier().getToken(), "Cannot reference '" + suitableMethod.getIdentifier().getName() +"' in calling other constructor.");
+                return Type.Error;
+            }
+
+            return ((MethodType) suitableMethod.getType()).getReturnType();
         } else {
             printErrorMessage(expression.getIdentifier().getToken(), "Can not find a method '" + expression.getIdentifier().getName() + "' for such arguments.");
             return Type.Error;
@@ -365,9 +354,36 @@ public class TypeCheckingVisitor implements TypeVisitor {
             return Type.Bool;
         }
 
-        if (((typeLeftExpression.isClass()) && (typeRightExpression.isClass())) ||
-                ((typeLeftExpression.isArray()) && (typeRightExpression.isArray()))) {
-            return Type.Bool;
+        if ((typeLeftExpression.isClass()) && (typeRightExpression.isClass())) {
+            ClassType classLeftExpression = ((ClassType) typeLeftExpression);
+            ClassType classRightExpression = ((ClassType) typeRightExpression);
+
+            if ((classLeftExpression.isSubclassOf(classRightExpression)) || (classRightExpression.isSubclassOf(classLeftExpression))) {
+                return Type.Bool;
+            }
+        }
+
+        if ((typeLeftExpression.isArray()) && (typeRightExpression.isArray())) {
+            BaseType baseTypeLeftExpression = typeLeftExpression;
+            BaseType baseTypeRightExpression = typeRightExpression;
+            while ((baseTypeLeftExpression.isArray()) && (baseTypeRightExpression.isArray())) {
+                baseTypeLeftExpression = ((ArrayType) baseTypeLeftExpression).getType();
+                baseTypeRightExpression = ((ArrayType) baseTypeRightExpression).getType();
+            }
+
+            if (((baseTypeLeftExpression.isInt()) || (baseTypeLeftExpression.isChar()) || (baseTypeLeftExpression.isBool())) &&
+                    (baseTypeLeftExpression.isEqual(baseTypeRightExpression))) {
+                return Type.Bool;
+            }
+
+            if ((baseTypeLeftExpression.isClass()) && (baseTypeRightExpression.isClass())) {
+                ClassType classLeftExpression = ((ClassType) baseTypeLeftExpression);
+                ClassType classRightExpression = ((ClassType) baseTypeRightExpression);
+
+                if ((classLeftExpression.isSubclassOf(classRightExpression)) || (classRightExpression.isSubclassOf(classLeftExpression))) {
+                    return Type.Bool;
+                }
+            }
         }
 
         if ((((typeLeftExpression.isClass()) || (typeLeftExpression.isArray())) && (typeRightExpression.isNil())) ||
@@ -379,7 +395,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
             return Type.Bool;
         }
 
-        printErrorMessage(expression.getToken(), "Operator '==' only accepts operands of type int, char, bool and references to arrays and objects. Both operands must have the same type (operands of reference types must be both arrays or objects).");
+        printErrorMessage(expression.getToken(), "Operator '==' only accepts operands of equal types.");
 
         return Type.Error;
     }
@@ -404,20 +420,10 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
                     if ((fieldSymbol.isStatic() == isStaticField) && ((scope == classSymbol) || ((fieldSymbol.isPublic()) || fieldSymbol.isProtected()))) {
                         // Need to check where code get access to this field.
-                        if (fieldSymbol.isProtected()) {
-                            // Only the current class and subclasses have access to protected fields
-                            if (!(((ClassClassType) mCurrentClassSymbol.getType()).getClassType().isSubclassOf(((ClassClassType) classSymbol.getType()).getClassType()))) {
-                                printErrorMessage(expression.getIdentifier().getToken(), "Can not get access to the field '" + symbol.getIdentifier().getName() + "'.");
-                                return Type.Error;
-                            }
-                        }
-
-                        if (fieldSymbol.isPrivate()) {
-                            // Only the current class has access to private fields
-                            if (!((((ClassClassType) classSymbol.getType()).getClassType()).isEqual(((ClassClassType) mCurrentClassSymbol.getType()).getClassType()))) {
-                                printErrorMessage(expression.getIdentifier().getToken(), "Can not get access to the field '" + symbol.getIdentifier().getName() + "'.");
-                                return Type.Error;
-                            }
+                        if (((fieldSymbol.isPrivate()) || (fieldSymbol.isProtected())) &&
+                                (!(classSymbol.getType().isEqual(mCurrentClassSymbol.getType())))) {
+                            printErrorMessage(expression.getIdentifier().getToken(), "Can not get access to the field '" + symbol.getIdentifier().getName() + "'.");
+                            return Type.Error;
                         }
 
                         isConst = fieldSymbol.isConst();
@@ -655,7 +661,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
             expectedMethodType.addFormalArgumentType(iterator.next().visit(this));
         }
 
-        MethodSymbol foundMethodSymbol = null;
+        LinkedList<MethodSymbol> foundMethodSymbols = new LinkedList<>();
 
         Symbol symbol = currentClassSymbol.getSymbolInCurrentScope("constructor");
 
@@ -693,15 +699,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
                     }
 
                     if (isSuitableMethod) {
-                        if (foundMethodSymbol == null) {
-                            foundMethodSymbol = (MethodSymbol) symbol;
-                        } else {
-                            // Another constructor with the same formal parameters are found. It is an error.
-                            if (!expectedMethodType.isEqualFormalArguments((MethodType) foundMethodSymbol.getType())) {
-                                printErrorMessage(expression.getToken(), "Clash of constructors.");
-                                return Type.Error;
-                            }
-                        }
+                        foundMethodSymbols.add((MethodSymbol) symbol);
                     }
                 }
 
@@ -709,27 +707,24 @@ public class TypeCheckingVisitor implements TypeVisitor {
             }
         }
 
-        if (foundMethodSymbol != null) {
+        MethodSymbol suitableMethod = findAppropriateMethod(foundMethodSymbols);
+
+        if ((suitableMethod == null) && (!foundMethodSymbols.isEmpty())) {
+            printErrorMessage(expression.getToken(), "This call of the constructor is ambiguous.");
+            return Type.Error;
+        }
+
+        if (suitableMethod != null) {
             // Need to check where code calls this constructor.
-            if (foundMethodSymbol.isProtected()) {
-                // Only the current class and subclasses have access to protected constructors.
-                if (!(((ClassClassType) mCurrentClassSymbol.getType()).getClassType().isSubclassOf(((ClassClassType) currentClassSymbol.getType()).getClassType()))) {
-                    printErrorMessage(expression.getToken(), "Can not get access to the constructor.");
-                    return Type.Error;
-                }
+            if (((suitableMethod.isPrivate()) || (suitableMethod.isProtected())) &&
+                    (!(currentClassSymbol.getType().isEqual(mCurrentClassSymbol.getType())))) {
+                printErrorMessage(expression.getToken(), "Can not get access to the constructor.");
+                return Type.Error;
             }
 
-            if (foundMethodSymbol.isPrivate()) {
-                // Only the current class has access to private constructors.
-                if (!((((ClassClassType) currentClassSymbol.getType()).getClassType()).isEqual(((ClassClassType) mCurrentClassSymbol.getType()).getClassType()))) {
-                    printErrorMessage(expression.getToken(), "Can not get access to the constructor.");
-                    return Type.Error;
-                }
-            }
+            expression.setSymbol(suitableMethod);
 
-            expression.setSymbol(foundMethodSymbol);
-
-            return ((MethodType) foundMethodSymbol.getType()).getReturnType();
+            return ((MethodType) suitableMethod.getType()).getReturnType();
         } else {
             printErrorMessage(expression.getToken(), "Can not find a constructor for such arguments.");
             return Type.Error;
@@ -764,9 +759,36 @@ public class TypeCheckingVisitor implements TypeVisitor {
             return Type.Bool;
         }
 
-        if (((typeLeftExpression.isClass()) && (typeRightExpression.isClass())) ||
-                ((typeLeftExpression.isArray()) && (typeRightExpression.isArray()))) {
-            return Type.Bool;
+        if ((typeLeftExpression.isClass()) && (typeRightExpression.isClass())) {
+            ClassType classLeftExpression = ((ClassType) typeLeftExpression);
+            ClassType classRightExpression = ((ClassType) typeRightExpression);
+
+            if ((classLeftExpression.isSubclassOf(classRightExpression)) || (classRightExpression.isSubclassOf(classLeftExpression))) {
+                return Type.Bool;
+            }
+        }
+
+        if ((typeLeftExpression.isArray()) && (typeRightExpression.isArray())) {
+            BaseType baseTypeLeftExpression = typeLeftExpression;
+            BaseType baseTypeRightExpression = typeRightExpression;
+            while ((baseTypeLeftExpression.isArray()) && (baseTypeRightExpression.isArray())) {
+                baseTypeLeftExpression = ((ArrayType) baseTypeLeftExpression).getType();
+                baseTypeRightExpression = ((ArrayType) baseTypeRightExpression).getType();
+            }
+
+            if (((baseTypeLeftExpression.isInt()) || (baseTypeLeftExpression.isChar()) || (baseTypeLeftExpression.isBool())) &&
+                    (baseTypeLeftExpression.isEqual(baseTypeRightExpression))) {
+                return Type.Bool;
+            }
+
+            if ((baseTypeLeftExpression.isClass()) && (baseTypeRightExpression.isClass())) {
+                ClassType classLeftExpression = ((ClassType) baseTypeLeftExpression);
+                ClassType classRightExpression = ((ClassType) baseTypeRightExpression);
+
+                if ((classLeftExpression.isSubclassOf(classRightExpression)) || (classRightExpression.isSubclassOf(classLeftExpression))) {
+                    return Type.Bool;
+                }
+            }
         }
 
         if ((((typeLeftExpression.isClass()) || (typeLeftExpression.isArray())) && (typeRightExpression.isNil())) ||
@@ -1029,7 +1051,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
         expectedMethodType.addReturnType(((ClassClassType) mCurrentClassSymbol.getType()).getClassType());
 
-        MethodSymbol foundMethodSymbol = null;
+        LinkedList<MethodSymbol> foundMethodSymbols = new LinkedList<>();
 
         BaseScope scope = statement.getSuperConstructorArgumentsList() != null ? mCurrentClassSymbol.getEnclosingScope() : mCurrentClassSymbol;
 
@@ -1071,17 +1093,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
                     // If a method exists in base class and has access modifier `public` or `protected` then it can be used in subclasses. Or if the method exists in the current class then everything is OK.
                     if ((isSuitableMethod) && ((scope == mCurrentClassSymbol) || ((((MethodSymbol) symbol).isPublic()) || (((MethodSymbol) symbol).isProtected())))) {
-                        // Found method may be inherited method or overridden. If method is inherited then need to check formal arguments to prevent clashing of methods.
-                        // If method is overridden then everything is OK. Keep searching of other methods.
-                        if (foundMethodSymbol == null) {
-                            foundMethodSymbol = (MethodSymbol) symbol;
-                        } else {
-                            // Another method with the same formal parameters are found. It is an error.
-                            if (!expectedMethodType.isEqualFormalArguments((MethodType) foundMethodSymbol.getType())) {
-                                printErrorMessage(statement.getToken(), "Clash of constructors.");
-                                return;
-                            }
-                        }
+                        foundMethodSymbols.add((MethodSymbol) symbol);
                     }
                 }
 
@@ -1089,11 +1101,90 @@ public class TypeCheckingVisitor implements TypeVisitor {
             }
         }
 
-        if (foundMethodSymbol != null) {
-            statement.setOtherConstructorSymbol(foundMethodSymbol);
+        MethodSymbol suitableMethod = findAppropriateMethod(foundMethodSymbols);
+
+        if ((suitableMethod == null) && (!foundMethodSymbols.isEmpty())) {
+            printErrorMessage(statement.getToken(), "This call of the constructor is ambiguous.");
+            return;
+        }
+
+        if (suitableMethod != null) {
+            statement.setOtherConstructorSymbol(suitableMethod);
         } else {
             printErrorMessage(statement.getToken(), "Can not find a constructor for such arguments.");
         }
+    }
+
+    private MethodSymbol findAppropriateMethod(LinkedList<MethodSymbol> foundMethodSymbols) {
+        // Use next rule to choose a function.
+        // Suppose two candidate methods function1(i1, i2, i3, .... , in) and function2(j1, j2, j3, .... , jn).
+        // function1 is the best match than function2 if ik <= jk for all k from 1 to n (e.g. i1 <= j1 and i2 <= j2 and i3 <= j3 and in <= jn).
+        //
+        // This case is ambiguous:
+        // class A { ... }
+        // class B : A { ... }
+        // class C { f1() { f(new B(), new B()) } ... f(var a : A, var b : B) { ... } f(var b : B, var a : A) { ... } ... }
+        //
+        // Need to check twice f(var a : A, var b : B) with f(var b : B, var a : A) and f(var b : B, var a : A) with f(var a : A, var b : B).
+        // In this case f(var a : A, var b : B) and f(var b : B, var a : A) does not satisfy the rule above.
+        MethodSymbol suitableMethod = null;
+        Iterator<MethodSymbol> methodSymbolIterator = foundMethodSymbols.iterator();
+
+        if (methodSymbolIterator.hasNext()) {
+            suitableMethod = methodSymbolIterator.next();
+            while (methodSymbolIterator.hasNext()) {
+                MethodSymbol methodSymbol = methodSymbolIterator.next();
+
+                MethodType suitableMethodType = (MethodType) suitableMethod.getType();
+                MethodType methodType = (MethodType) methodSymbol.getType();
+
+                Iterator<BaseType> suitableMethodTypesIterator = suitableMethodType.getFormalArgumentTypes().iterator();
+                Iterator<BaseType> methodTypesIterator = methodType.getFormalArgumentTypes().iterator();
+
+                boolean isSuitableMethod = true;
+
+                // Compare arguments of function1 and function2.
+                while ((suitableMethodTypesIterator.hasNext()) && (methodTypesIterator.hasNext())) {
+                    BaseType suitableType = suitableMethodTypesIterator.next();
+                    BaseType type = methodTypesIterator.next();
+
+                    if ((suitableType.isClass()) && (type.isClass())) {
+                        if (!((ClassType) suitableType).isSubclassOf((ClassType) type)) {
+                            isSuitableMethod = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (!isSuitableMethod) {
+                    suitableMethodTypesIterator = suitableMethodType.getFormalArgumentTypes().iterator();
+                    methodTypesIterator = methodType.getFormalArgumentTypes().iterator();
+
+                    isSuitableMethod = true;
+
+                    // Compare arguments of function2 and function1.
+                    while ((suitableMethodTypesIterator.hasNext()) && (methodTypesIterator.hasNext())) {
+                        BaseType suitableType = suitableMethodTypesIterator.next();
+                        BaseType type = methodTypesIterator.next();
+
+                        if ((suitableType.isClass()) && (type.isClass())) {
+                            if (!((ClassType) type).isSubclassOf((ClassType) suitableType)) {
+                                isSuitableMethod = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (isSuitableMethod) {
+                        suitableMethod = methodSymbol;
+                    } else {
+                        return null;
+                    }
+                }
+            }
+        }
+
+        return suitableMethod;
     }
 
     protected void printErrorMessage(Token token, String message) {

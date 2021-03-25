@@ -9,41 +9,40 @@ import java.util.LinkedList;
 // This class is used to create basic blocks and analyze them. Basic blocks may have any order. It gives an opportunity to optimize code.
 public class ControlFlowAnalyzing {
 
-    private LinkedList<BasicBlock> mBasicBlocks;
-    private Iterator<BasicBlock> mIteratorBasicBlock;
+    private String mMethodName;
     private Iterator<IRStatement> mIteratorStatement;
-    private BasicBlock mBasicBlock;
 
-    public ControlFlowAnalyzing() {
-        mBasicBlocks = new LinkedList<>();
+    public ControlFlowAnalyzing(String methodName) {
+        mMethodName = methodName;
     }
 
-    public void createBasicBlocks(String methodName, LinkedList<IRStatement> statements) {
+    public LinkedList<BasicBlock> createBasicBlocks(LinkedList<IRStatement> statements) {
+        LinkedList<BasicBlock> basicBlocks = new LinkedList<>();
+
         if (statements.isEmpty()) {
-            return;
+            return basicBlocks;
         }
 
         BasicBlock basicBlock = new BasicBlock();
-        mBasicBlocks.add(basicBlock);
+        basicBlocks.add(basicBlock);
 
         for (IRStatement statement : statements) {
             if (basicBlock.isEmpty()) {
-                if (statement instanceof LABEL) {
-                    basicBlock.addStatement(statement);
-                } else {
+                if (!(statement instanceof LABEL)) {
                     basicBlock.addStatement(new LABEL(Label.newLabel()));
-                    basicBlock.addStatement(statement);
                 }
+
+                basicBlock.addStatement(statement);
             } else {
                 if (statement instanceof LABEL) {
                     basicBlock.addStatement(new JUMP(((LABEL) statement).getLabel()));
                     basicBlock = new BasicBlock();
-                    mBasicBlocks.add(basicBlock);
+                    basicBlocks.add(basicBlock);
                     basicBlock.addStatement(statement);
                 } else if ((statement instanceof CJUMP) || (statement instanceof JUMP)) {
                     basicBlock.addStatement(statement);
                     basicBlock = new BasicBlock();
-                    mBasicBlocks.add(basicBlock);
+                    basicBlocks.add(basicBlock);
                 } else {
                     basicBlock.addStatement(statement);
                 }
@@ -54,22 +53,22 @@ public class ControlFlowAnalyzing {
             basicBlock.addStatement(new LABEL(Label.newLabel()));
         }
 
-        basicBlock.addStatement(new JUMP(Label.newLabel("_" + methodName + "_end_")));
-    }
+        basicBlock.addStatement(new JUMP(Label.newLabel("_" + mMethodName + "_end_")));
 
-    public LinkedList<BasicBlock> getBasicBlocks() {
-        return mBasicBlocks;
+        return basicBlocks;
     }
 
     // This analysis follows a simple rules:
     // 1. CJUMP followed by its label 'false' (need to rewrite CJUMP).
     // 2. JUMP must be removed if JUMP followed by its label.
-    public LinkedList<IRStatement> traceBasicBlocks() {
+    public LinkedList<IRStatement> trace(LinkedList<IRStatement> irStatements) {
+        Iterator<BasicBlock> basicBlocksIterator = createBasicBlocks(irStatements).iterator();
+
         LinkedList<IRStatement> statements = new LinkedList<>();
 
         IRStatement statement;
         IRStatement prevStatement = null;
-        while ((statement = getNextStatement()) != null) {
+        while ((statement = getNextStatement(basicBlocksIterator)) != null) {
             if (prevStatement != null) {
                 if (prevStatement instanceof CJUMP) {
                     CJUMP cjump = (CJUMP) prevStatement;
@@ -119,15 +118,10 @@ public class ControlFlowAnalyzing {
         return statements;
     }
 
-    private IRStatement getNextStatement() {
-        if (mIteratorBasicBlock == null) {
-            mIteratorBasicBlock = mBasicBlocks.iterator();
-        }
-
+    private IRStatement getNextStatement(Iterator<BasicBlock> mIteratorBasicBlock) {
         if ((mIteratorStatement == null) || (!mIteratorStatement.hasNext())) {
             if (mIteratorBasicBlock.hasNext()) {
-                mBasicBlock = mIteratorBasicBlock.next();
-                mIteratorStatement = mBasicBlock.getStatements().iterator();
+                mIteratorStatement = mIteratorBasicBlock.next().getStatements().iterator();
             } else {
                 return null;
             }

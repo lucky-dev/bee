@@ -6,9 +6,7 @@ public enum TypeBinOp {
     MINUS("-"),
     MUL("*"),
     DIV("/"),
-    MOD("%"),
-    AND("&&"),
-    OR("||");
+    MOD("%");
 
     private String mName;
 
