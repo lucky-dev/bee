@@ -32,7 +32,7 @@ public class AsmMOVE extends AsmInstruction {
 
     @Override
     public LinkedList<Label> getJumps() {
-        return null;
+        return new LinkedList<>();
     }
 
 }

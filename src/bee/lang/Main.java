@@ -1,7 +1,9 @@
 package bee.lang;
 
 import bee.lang.assembly.AsmInstruction;
+import bee.lang.assembly.TempMap;
 import bee.lang.ast.Program;
+import bee.lang.ir.Temp;
 import bee.lang.ir.tree.IRStatement;
 import bee.lang.lexer.Lexer;
 import bee.lang.parser.Parser;
@@ -36,6 +38,13 @@ public class Main {
     }
 
     private static void printAllFragments(NewIRTreeVisitor newIRTreeVisitor) {
+        TempMap tempMap = new TempMap() {
+            @Override
+            public String tempMap(Temp temp) {
+                return null;
+            }
+        };
+
         TransformIRTree transformIRTree = new TransformIRTree();
 
         Iterator<Fragment> fragmentIterator = newIRTreeVisitor.getFragment().iterator();
@@ -56,11 +65,23 @@ public class Main {
                 LinkedList<IRStatement> linearizedTree = transformIRTree.linearizeTree(canonicalTrees);
                 ControlFlowAnalyzing controlFlowAnalyzing = new ControlFlowAnalyzing(procedureFragment.getFrame().getProcedureName());
                 LinkedList<IRStatement> tracedTrees = controlFlowAnalyzing.trace(linearizedTree);
+                LinkedList<AsmInstruction> asmInstructions = new LinkedList<>();
                 for (IRStatement statement : tracedTrees) {
-                    for (AsmInstruction asmInstruction : procedureFragment.getFrame().codegen(statement)) {
-                        System.out.println(asmInstruction.format(procedureFragment.getFrame()));
+                    LinkedList<AsmInstruction> list = procedureFragment.getFrame().codegen(statement);
+
+                    asmInstructions.addAll(list);
+
+                    for (AsmInstruction asmInstruction : list) {
+                        System.out.println(asmInstruction.format(tempMap));
                     }
                 }
+
+                System.out.println("\nControl-flow graph:");
+                AsmFlowGraph asmFlowGraph = new AsmFlowGraph(asmInstructions);
+                asmFlowGraph.print(tempMap);
+                System.out.println("\nInterference graph:");
+                Liveness liveness = new Liveness(asmFlowGraph);
+                liveness.print();
                 System.out.println("=== END PROCEDURE ===");
             }
         }

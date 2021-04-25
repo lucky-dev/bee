@@ -7,24 +7,21 @@ import bee.lang.ir.Temp;
 import bee.lang.ir.tree.IRExpression;
 import bee.lang.ir.tree.IRStatement;
 
-import java.util.ArrayList;
 import java.util.LinkedList;
 
 public abstract class Frame implements TempMap {
 
-    protected ArrayList<Access> mFormalArguments;
-    protected ArrayList<Access> mLocalVariables;
+    protected LinkedList<Access> mFormalArguments;
     protected Label mName;
 
     public abstract Frame newFrame(Label name, LinkedList<Boolean> args);
-    public abstract int allocLocal(boolean isInFrame);
+    public abstract Access allocLocal(boolean isInFrame);
     public abstract String getProcedureName();
     public abstract int getWordSize();
     public abstract Temp getFP();
     public abstract Temp getRV();
     public abstract Temp getRA();
-    public abstract Access getFormalArg(int index);
-    public abstract Access getLocalVar(int index);
+    public abstract LinkedList<Access> getFormalArguments();
     public abstract IRExpression externalCall(String functionName, LinkedList<IRExpression> args);
     public abstract IRStatement procEntryExit1(IRStatement statement);
     public abstract LinkedList<AsmInstruction> procEntryExit2(LinkedList<AsmInstruction> body);

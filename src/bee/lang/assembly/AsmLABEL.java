@@ -16,17 +16,21 @@ public class AsmLABEL extends AsmInstruction {
 
     @Override
     public LinkedList<Temp> getUse() {
-        return null;
+        return new LinkedList<>();
     }
 
     @Override
     public LinkedList<Temp> getDef() {
-        return null;
+        return new LinkedList<>();
     }
 
     @Override
     public LinkedList<Label> getJumps() {
-        return null;
+        return new LinkedList<>();
+    }
+
+    public Label getLabel() {
+        return mLabel;
     }
 
 }

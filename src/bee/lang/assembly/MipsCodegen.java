@@ -38,18 +38,18 @@ public class MipsCodegen {
                     if (binop.getTypeBinOp() == TypeBinOp.PLUS) {
                         if (binop.getRightExpression() instanceof CONST) {
                             // MOVE(MEM(BINOP(PLUS, e1, CONST(n))), e2)
-                            mInstructionsList.add(new AsmMOVE("sw %s0, " + ((CONST) binop.getRightExpression()).getValue() + "(%s1)", munchExpression(binop.getLeftExpression()), munchExpression(move.getSrc())));
+                            mInstructionsList.add(new AsmOPER("sw %s0, " + ((CONST) binop.getRightExpression()).getValue() + "(%s1)", emptyList(), list(munchExpression(move.getSrc()), munchExpression(binop.getLeftExpression()))));
                             return;
                         } else if (binop.getLeftExpression() instanceof CONST) {
                             // MOVE(MEM(BINOP(PLUS, CONST(n), e1)), e2)
-                            mInstructionsList.add(new AsmMOVE("sw %s0, " + ((CONST) binop.getLeftExpression()).getValue() + "(%s1)", munchExpression(binop.getRightExpression()), munchExpression(move.getSrc())));
+                            mInstructionsList.add(new AsmOPER("sw %s0, " + ((CONST) binop.getLeftExpression()).getValue() + "(%s1)", emptyList(), list(munchExpression(binop.getRightExpression()), munchExpression(move.getSrc()))));
                             return;
                         }
                     }
                 }
 
                 // MOVE(MEM(e1), e2)
-                mInstructionsList.add(new AsmMOVE("sw %s0, 0(%s1)", munchExpression(mem.getExpression()), munchExpression(move.getSrc())));
+                mInstructionsList.add(new AsmOPER("sw %s0, 0(%s1)", emptyList(), list(munchExpression(mem.getExpression()), munchExpression(move.getSrc()))));
                 return;
             }
 
@@ -104,14 +104,14 @@ public class MipsCodegen {
             }
 
             // CJUMP(op, e1, e2, t, f)
-            mInstructionsList.add(new AsmOPER(relOp + " %s0, %s1, " + cjump.getLblTrue(), null, list(munchExpression(cjump.getLeftExpression()), munchExpression(cjump.getRightExpression())), list(cjump.getLblTrue())));
+            mInstructionsList.add(new AsmOPER(relOp + " %s0, %s1, " + cjump.getLblTrue(), emptyList(), list(munchExpression(cjump.getLeftExpression()), munchExpression(cjump.getRightExpression())), list(cjump.getLblTrue())));
             return;
         }
 
         if (statement instanceof JUMP) {
             // JUMP(l)
             JUMP jump = (JUMP) statement;
-            mInstructionsList.add(new AsmOPER("b " + jump.getTargets().getFirst(), null, null, jump.getTargets()));
+            mInstructionsList.add(new AsmOPER("b " + jump.getTargets().getFirst(), emptyList(), emptyList(), jump.getTargets()));
             return;
         }
 
@@ -184,22 +184,22 @@ public class MipsCodegen {
                 case MUL: {
                     // BINOP(MUL, e1, e2)
                     result = new Temp();
-                    mInstructionsList.add(new AsmOPER("mult %s0, %s1", null, list(munchExpression(binop.getLeftExpression()), munchExpression(binop.getRightExpression()))));
-                    mInstructionsList.add(new AsmOPER("mflo %d0", list(result), null));
+                    mInstructionsList.add(new AsmOPER("mult %s0, %s1", emptyList(), list(munchExpression(binop.getLeftExpression()), munchExpression(binop.getRightExpression()))));
+                    mInstructionsList.add(new AsmOPER("mflo %d0", list(result), emptyList()));
                 } break;
 
                 case DIV: {
                     // BINOP(DIV, e1, e2)
                     result = new Temp();
-                    mInstructionsList.add(new AsmOPER("div %s0, %s1", null, list(munchExpression(binop.getLeftExpression()), munchExpression(binop.getRightExpression()))));
-                    mInstructionsList.add(new AsmOPER("mflo %d0", list(result), null));
+                    mInstructionsList.add(new AsmOPER("div %s0, %s1", emptyList(), list(munchExpression(binop.getLeftExpression()), munchExpression(binop.getRightExpression()))));
+                    mInstructionsList.add(new AsmOPER("mflo %d0", list(result), emptyList()));
                 } break;
 
                 default: {
                     // BINOP(MOD, e1, e2)
                     result = new Temp();
-                    mInstructionsList.add(new AsmOPER("div %s0, %s1", null, list(munchExpression(binop.getLeftExpression()), munchExpression(binop.getRightExpression()))));
-                    mInstructionsList.add(new AsmOPER("mfhi %d0", list(result), null));
+                    mInstructionsList.add(new AsmOPER("div %s0, %s1", emptyList(), list(munchExpression(binop.getLeftExpression()), munchExpression(binop.getRightExpression()))));
+                    mInstructionsList.add(new AsmOPER("mfhi %d0", list(result), emptyList()));
                 }
             }
 
@@ -209,14 +209,14 @@ public class MipsCodegen {
         if (expression instanceof CONST) {
             // CONST(n)
             Temp result = new Temp();
-            mInstructionsList.add(new AsmOPER("li %d0, " + ((CONST) expression).getValue(), list(result), null));
+            mInstructionsList.add(new AsmOPER("li %d0, " + ((CONST) expression).getValue(), list(result), emptyList()));
             return result;
         }
 
         if (expression instanceof NAME) {
             // NAME(l)
             Temp result = new Temp();
-            mInstructionsList.add(new AsmOPER("la %d0, " + ((NAME) expression).getLabel().getName(), list(result), null));
+            mInstructionsList.add(new AsmOPER("la %d0, " + ((NAME) expression).getLabel().getName(), list(result), emptyList()));
             return result;
         }
 
@@ -242,9 +242,7 @@ public class MipsCodegen {
     private LinkedList<Temp> munchArgs(LinkedList<IRExpression> args) throws CodegenException {
         LinkedList<Temp> result = new LinkedList<>();
 
-        LinkedList<Temp> argRegs = mFrame.getArgRegs();
-
-        Iterator<Temp> argRegsIterator = argRegs.iterator();
+        Iterator<Temp> argRegsIterator = mFrame.getArgRegs().iterator();
 
         int offset = 0;
 
@@ -252,9 +250,9 @@ public class MipsCodegen {
             Temp temp = munchExpression(expression);
 
             if (argRegsIterator.hasNext()) {
-                mInstructionsList.add(new AsmOPER("move %d0, %s0", list(argRegsIterator.next()), list(temp)));
+                mInstructionsList.add(new AsmMOVE("move %d0, %s0", argRegsIterator.next(), temp));
             } else {
-                mInstructionsList.add(new AsmOPER("sw %s0, " + offset + "(%s1)", null, list(temp, mFrame.getFP())));
+                mInstructionsList.add(new AsmOPER("sw %s0, " + offset + "(%s1)", emptyList(), list(temp, mFrame.getFP())));
                 offset += mFrame.getWordSize();
             }
 
@@ -272,6 +270,10 @@ public class MipsCodegen {
         }
 
         return list;
+    }
+
+    private <T> LinkedList<T> emptyList() {
+        return new LinkedList<>();
     }
 
     private static class CodegenException extends Exception {
