@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 
+// This class is used to create a control-flow graph. This graph will be used for liveness analysis. Each node of the graph is an instruction. Each edge of the graph is path from one instruction to other instruction.
 public class AsmFlowGraph extends FlowGraph {
 
     private HashMap<Node, AsmInstruction> mNodeInfo;
@@ -24,8 +25,6 @@ public class AsmFlowGraph extends FlowGraph {
         mNodeInfo = new HashMap<>();
         mReverseNodeInfo = new HashMap<>();
         mNodeLabels = new HashMap<>();
-
-        // Create control-flow graph. This graph will be used for liveness analysis. Each node of the graph is an instruction. Each edge of the graph is path from one instruction to other instruction.
 
         // Create only nodes
         AsmLABEL prevAsmLabel = null;

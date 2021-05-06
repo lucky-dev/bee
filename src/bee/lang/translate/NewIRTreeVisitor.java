@@ -252,7 +252,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
                 return new Ex(new CALL(new NAME(Label.newLabel(methodSymbol.getMethodId())), args));
             } else {
                 int virtualMethodId = mMethodLayout.get(((MethodSymbol) expression.getSymbol()).getMethodId());
-                return new Ex(new CALL(new MEM(new BINOP(TypeBinOp.PLUS, new MEM(new MEM(new BINOP(TypeBinOp.PLUS, currentObject, new CONST(mCurrentFrame.getWordSize())))), new BINOP(TypeBinOp.MUL, new CONST(virtualMethodId), new CONST(mCurrentFrame.getWordSize())))), args));
+                return new Ex(new CALL(new MEM(new BINOP(TypeBinOp.PLUS, new MEM(new MEM(new BINOP(TypeBinOp.PLUS, currentObject, new CONST(mCurrentFrame.getWordSize())))), new CONST(virtualMethodId * mCurrentFrame.getWordSize()))), args));
             }
         }
     }
@@ -433,9 +433,9 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         FieldSymbol fieldSymbol = (FieldSymbol) expression.getSymbol();
 
         if (fieldSymbol.isStatic()) {
-            return new Ex(new MEM(new BINOP(TypeBinOp.PLUS, irExpression, new BINOP(TypeBinOp.MUL, new BINOP(TypeBinOp.PLUS, new CONST(mClassLayout.get(mCurrentFieldId)), new CONST(1)), new CONST(mCurrentFrame.getWordSize())))));
+            return new Ex(new MEM(new BINOP(TypeBinOp.PLUS, irExpression, new CONST((mClassLayout.get(mCurrentFieldId) + 1) * mCurrentFrame.getWordSize()))));
         } else {
-            return new Ex(new MEM(new BINOP(TypeBinOp.PLUS, irExpression, new BINOP(TypeBinOp.MUL, new BINOP(TypeBinOp.PLUS, new CONST(mObjectLayout.get(mCurrentFieldId)), new CONST(2)), new CONST(mCurrentFrame.getWordSize())))));
+            return new Ex(new MEM(new BINOP(TypeBinOp.PLUS, irExpression, new CONST((mObjectLayout.get(mCurrentFieldId) + 2) * mCurrentFrame.getWordSize()))));
         }
     }
 
@@ -488,7 +488,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
         if (symbol instanceof FieldSymbol) {
             if (!((FieldSymbol) symbol).isStatic()) {
-                return new Ex(new MEM(new BINOP(TypeBinOp.PLUS, mFirstArg.exp(new TEMP(mCurrentFrame.getFP())), new BINOP(TypeBinOp.MUL, new BINOP(TypeBinOp.PLUS, new CONST(mObjectLayout.get(mCurrentFieldId)), new CONST(2)), new CONST(mCurrentFrame.getWordSize())))));
+                return new Ex(new MEM(new BINOP(TypeBinOp.PLUS, mFirstArg.exp(new TEMP(mCurrentFrame.getFP())), new CONST((mObjectLayout.get(mCurrentFieldId) + 2) * mCurrentFrame.getWordSize()))));
             }
         }
 
@@ -655,7 +655,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         return new Ex(
                 new ESEQ(
                         new SEQ(
-                                new MOVE(new TEMP(newSize), new BINOP(TypeBinOp.MUL, new BINOP(TypeBinOp.PLUS, new CONST(mObjectLayout.getCountItems()), new CONST(2)), new CONST(mCurrentFrame.getWordSize()))),
+                                new MOVE(new TEMP(newSize), new CONST((mObjectLayout.getCountItems() + 2) * mCurrentFrame.getWordSize())),
                                 new SEQ(new MOVE(
                                         new TEMP(newObject), mCurrentFrame.externalCall(FUNCTION_ALLOC_INIT_RAW_MEMORY, args(new TEMP(newSize)))),
                                         new SEQ(
@@ -899,7 +899,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
                     mLastStatementBodyMethodInitStaticFields = newSeq;
                 }
 
-                mLastStatementBodyMethodInitStaticFields.setLeftStatement(new MOVE(new MEM(new BINOP(TypeBinOp.PLUS, new NAME(mClassDescriptionLbl), new BINOP(TypeBinOp.MUL, new BINOP(TypeBinOp.PLUS, new CONST(mClassLayout.get(mCurrentFieldId)), new CONST(1)), new CONST(mCurrentFrame.getWordSize())))), irInitExpression.unEx()));
+                mLastStatementBodyMethodInitStaticFields.setLeftStatement(new MOVE(new MEM(new BINOP(TypeBinOp.PLUS, new NAME(mClassDescriptionLbl), new CONST((mClassLayout.get(mCurrentFieldId) + 1) * mCurrentFrame.getWordSize()))), irInitExpression.unEx()));
             } else {
                 // This code is generated for the method '_<class name>_init_fields'.
                 if (mBodyMethodInitFields == null) {
@@ -911,7 +911,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
                     mLastStatementBodyMethodInitFields = newSeq;
                 }
 
-                mLastStatementBodyMethodInitFields.setLeftStatement(new MOVE(new MEM(new BINOP(TypeBinOp.PLUS, mFirstArg.exp(new TEMP(mCurrentFrame.getFP())), new BINOP(TypeBinOp.MUL, new BINOP(TypeBinOp.PLUS, new CONST(mObjectLayout.get(mCurrentFieldId)), new CONST(2)), new CONST(mCurrentFrame.getWordSize())))), irInitExpression.unEx()));
+                mLastStatementBodyMethodInitFields.setLeftStatement(new MOVE(new MEM(new BINOP(TypeBinOp.PLUS, mFirstArg.exp(new TEMP(mCurrentFrame.getFP())), new CONST((mObjectLayout.get(mCurrentFieldId) + 2) * mCurrentFrame.getWordSize()))), irInitExpression.unEx()));
             }
         } else {
             LocalVariableSymbol symbol = ((LocalVariableSymbol) statement.getSymbol());

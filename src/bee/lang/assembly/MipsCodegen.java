@@ -56,7 +56,8 @@ public class MipsCodegen {
             if (move.getDst() instanceof TEMP) {
                 if (move.getSrc() instanceof CALL) {
                     // MOVE(TEMP(t), CALL(f, args))
-                    handleCall((CALL) ((MOVE) statement).getSrc());
+                    handleCall((CALL) move.getSrc());
+                    mInstructionsList.add(new AsmMOVE("move %d0, %s0", ((TEMP) move.getDst()).getTemp(), mFrame.getRV()));
                 } else {
                     // MOVE(TEMP(t), e1)
                     mInstructionsList.add(new AsmMOVE("move %d0, %s0", ((TEMP) move.getDst()).getTemp(), munchExpression(move.getSrc())));

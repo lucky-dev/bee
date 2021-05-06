@@ -19,7 +19,7 @@ public class AsmOPER extends AsmInstruction {
     }
 
     public AsmOPER(String asmInstruction, LinkedList<Temp> dst, LinkedList<Temp> src) {
-        this(asmInstruction, dst, src, null);
+        this(asmInstruction, dst, src, new LinkedList<>());
     }
 
     @Override

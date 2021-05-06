@@ -1,9 +1,7 @@
 package bee.lang;
 
 import bee.lang.assembly.AsmInstruction;
-import bee.lang.assembly.TempMap;
 import bee.lang.ast.Program;
-import bee.lang.ir.Temp;
 import bee.lang.ir.tree.IRStatement;
 import bee.lang.lexer.Lexer;
 import bee.lang.parser.Parser;
@@ -18,8 +16,13 @@ import java.util.LinkedList;
 public class Main {
 
     public static void main(String[] args) {
-        Parser parser = new Parser(new Lexer());
+        // Lexical analysis
+        Lexer lexer = new Lexer();
+        // Parsing
+        Parser parser = new Parser(lexer);
+        // Build AST
         Program program = parser.parse("");
+        // Semantic analysis
         NewSymbolTableVisitor symbolTableVisitor = new NewSymbolTableVisitor();
         symbolTableVisitor.visit(program);
         BaseScope scope = symbolTableVisitor.getCurrentScope();
@@ -31,19 +34,9 @@ public class Main {
         validatingLoopsVisitor.visit(program);
         NewLayoutsVisitor newLayoutsVisitor = new NewLayoutsVisitor(scope, symbolTableVisitor.getSortedListOfClasses());
         newLayoutsVisitor.visit(program);
+        // Translation to IR
         NewIRTreeVisitor newIRTreeVisitor = new NewIRTreeVisitor(new MipsFrame(), newLayoutsVisitor.getObjectLayout(), newLayoutsVisitor.getClassLayout(), newLayoutsVisitor.getVirtualTable());
         newIRTreeVisitor.visit(program);
-
-        printAllFragments(newIRTreeVisitor);
-    }
-
-    private static void printAllFragments(NewIRTreeVisitor newIRTreeVisitor) {
-        TempMap tempMap = new TempMap() {
-            @Override
-            public String tempMap(Temp temp) {
-                return null;
-            }
-        };
 
         TransformIRTree transformIRTree = new TransformIRTree();
 
@@ -61,27 +54,26 @@ public class Main {
                 System.out.println("=== START PROCEDURE ===");
                 ProcedureFragment procedureFragment = (ProcedureFragment) fragment;
                 IRStatement procedureBody = procedureFragment.getBody();
+                // Translation to IR
                 IRStatement canonicalTrees = transformIRTree.transformStatement(procedureBody);
                 LinkedList<IRStatement> linearizedTree = transformIRTree.linearizeTree(canonicalTrees);
+                // Create basic blocks and trace
                 ControlFlowAnalyzing controlFlowAnalyzing = new ControlFlowAnalyzing(procedureFragment.getFrame().getProcedureName());
                 LinkedList<IRStatement> tracedTrees = controlFlowAnalyzing.trace(linearizedTree);
                 LinkedList<AsmInstruction> asmInstructions = new LinkedList<>();
                 for (IRStatement statement : tracedTrees) {
-                    LinkedList<AsmInstruction> list = procedureFragment.getFrame().codegen(statement);
+                    // Instruction selection
+                    asmInstructions.addAll(procedureFragment.getFrame().codegen(statement));
+                }
+                asmInstructions = procedureFragment.getFrame().procEntryExit2(asmInstructions);
 
-                    asmInstructions.addAll(list);
+                // Liveness analysis and register allocation
+                RegAlloc regAlloc = new RegAlloc(procedureFragment.getFrame(), asmInstructions);
 
-                    for (AsmInstruction asmInstruction : list) {
-                        System.out.println(asmInstruction.format(tempMap));
-                    }
+                for (AsmInstruction asmInstruction : asmInstructions) {
+                    System.out.println(asmInstruction.format(regAlloc));
                 }
 
-                System.out.println("\nControl-flow graph:");
-                AsmFlowGraph asmFlowGraph = new AsmFlowGraph(asmInstructions);
-                asmFlowGraph.print(tempMap);
-                System.out.println("\nInterference graph:");
-                Liveness liveness = new Liveness(asmFlowGraph);
-                liveness.print();
                 System.out.println("=== END PROCEDURE ===");
             }
         }

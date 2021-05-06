@@ -19,12 +19,20 @@ public class Node {
         mSuccList.add(node);
     }
 
+    public void removeSucc(Node node) {
+        mSuccList.remove(node);
+    }
+
     public LinkedList<Node> succ() {
         return new LinkedList<>(mSuccList);
     }
 
     public void addPred(Node node) {
         mPredList.add(node);
+    }
+
+    public void removePred(Node node) {
+        mPredList.remove(node);
     }
 
     public LinkedList<Node> pred() {

@@ -29,7 +29,9 @@ public abstract class Frame implements TempMap {
     public abstract LinkedList<AsmInstruction> codegen(IRStatement statement);
     public abstract LinkedList<Temp> getSpecialRegs();
     public abstract LinkedList<Temp> getArgRegs();
+    public abstract LinkedList<Temp> getReturnValueRegs();
     public abstract LinkedList<Temp> getCalleeSavesRegs();
     public abstract LinkedList<Temp> getCallerSavesRegs();
+    public abstract LinkedList<Temp> registers();
 
 }
