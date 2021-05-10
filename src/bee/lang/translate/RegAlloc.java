@@ -11,13 +11,16 @@ import java.util.LinkedList;
 public class RegAlloc implements TempMap {
 
     private Color mColor;
+    private Frame mFrame;
 
     public RegAlloc(Frame frame, LinkedList<AsmInstruction> asmInstructions) {
+        mFrame = frame;
+
         AsmFlowGraph asmFlowGraph = new AsmFlowGraph(asmInstructions);
 
         Liveness liveness = new Liveness(asmFlowGraph);
 
-        mColor = new Color(liveness, frame, frame.registers());
+        mColor = new Color(liveness, frame, frame.registers(), frame.getCountRegisters());
     }
 
     @Override

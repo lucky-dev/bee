@@ -2,7 +2,10 @@ package bee.lang.assembly;
 
 import bee.lang.ir.Temp;
 import bee.lang.ir.tree.*;
+import bee.lang.translate.frame.Access;
 import bee.lang.translate.frame.Frame;
+import bee.lang.translate.frame.InFrame;
+import bee.lang.translate.frame.InReg;
 
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -243,18 +246,16 @@ public class MipsCodegen {
     private LinkedList<Temp> munchArgs(LinkedList<IRExpression> args) throws CodegenException {
         LinkedList<Temp> result = new LinkedList<>();
 
+        int i = 0;
         Iterator<Temp> argRegsIterator = mFrame.getArgRegs().iterator();
-
-        int offset = 0;
-
         for (IRExpression expression : args) {
             Temp temp = munchExpression(expression);
 
             if (argRegsIterator.hasNext()) {
                 mInstructionsList.add(new AsmMOVE("move %d0, %s0", argRegsIterator.next(), temp));
             } else {
-                mInstructionsList.add(new AsmOPER("sw %s0, " + offset + "(%s1)", emptyList(), list(temp, mFrame.getFP())));
-                offset += mFrame.getWordSize();
+                mInstructionsList.add(new AsmOPER("sw %s0, " + (i * mFrame.getWordSize()) + "(%s1)", emptyList(), list(temp, mFrame.getFP())));
+                i++;
             }
 
             result.add(temp);

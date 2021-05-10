@@ -35,4 +35,12 @@ public class AsmMOVE extends AsmInstruction {
         return new LinkedList<>();
     }
 
+    public Temp getDst() {
+        return mDst;
+    }
+
+    public Temp getSrc() {
+        return mSrc;
+    }
+
 }

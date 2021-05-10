@@ -6,6 +6,7 @@ import bee.lang.assembly.MipsCodegen;
 import bee.lang.ir.Label;
 import bee.lang.ir.Temp;
 import bee.lang.ir.tree.*;
+import bee.lang.translate.ProcedureFragment;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -60,8 +61,6 @@ public class MipsFrame extends Frame {
 
     private static HashMap<Temp, String> sNamesOfRegs = new HashMap<>();
 
-    private static LinkedList<Temp> sAllRegisters = new LinkedList<>();
-
     static {
         sNamesOfRegs.put(sZero, "$zero");
         sNamesOfRegs.put(sAT, "$at");
@@ -97,15 +96,20 @@ public class MipsFrame extends Frame {
         sNamesOfRegs.put(sRA, "$ra");
     }
 
+    private LinkedList<Access> mFormalArguments;
+    private LinkedList<Access> mFormalArgumentsInFunction;
+    private Label mName;
     private Temp[] mRegArgs;
-    private int mOffsetLocals;
-    private int mOffsetArgs;
     private LinkedList<Temp> mSpecialRegs;
     private LinkedList<Temp> mArgRegs;
     private LinkedList<Temp> mCalleeSavesRegs;
+    private LinkedList<Temp> mMoreCalleeSavesRegs;
     private LinkedList<Temp> mCallerSavesRegs;
     private LinkedList<Temp> mReturnSink;
     private LinkedList<Temp> mReturnValueRegs;
+    private int mCountLocalVarsInFrame;
+    private IRStatement mMoveStatements;
+    private LinkedList<Temp> mAllRegisters;
 
     public MipsFrame() {
         mSpecialRegs = new LinkedList<>();
@@ -137,8 +141,10 @@ public class MipsFrame extends Frame {
         mCalleeSavesRegs.add(sT5);
         mCalleeSavesRegs.add(sT6);
         mCalleeSavesRegs.add(sT7);
-        mCalleeSavesRegs.add(sT8);
-        mCalleeSavesRegs.add(sT9);
+
+        mMoreCalleeSavesRegs = new LinkedList<>();
+        mMoreCalleeSavesRegs.add(sT8);
+        mMoreCalleeSavesRegs.add(sT9);
 
         mCallerSavesRegs = new LinkedList<>();
         mCallerSavesRegs.add(sS0);
@@ -150,11 +156,13 @@ public class MipsFrame extends Frame {
         mCallerSavesRegs.add(sS6);
         mCallerSavesRegs.add(sS7);
 
-//        sAllRegisters.addAll(mSpecialRegs);
-//        sAllRegisters.addAll(mArgRegs);
-//        sAllRegisters.addAll(mReturnValueRegs);
-        sAllRegisters.addAll(mCalleeSavesRegs);
-        sAllRegisters.addAll(mCallerSavesRegs);
+        mAllRegisters = new LinkedList<>();
+//        mAllRegisters.addAll(mSpecialRegs);
+//        mAllRegisters.addAll(mArgRegs);
+//        mAllRegisters.addAll(mReturnValueRegs);
+//        mAllRegisters.addAll(mMoreCalleeSavesRegs);
+        mAllRegisters.addAll(mCallerSavesRegs);
+        mAllRegisters.addAll(mCalleeSavesRegs);
 
         mReturnSink = new LinkedList<>();
         mReturnSink.addAll(mSpecialRegs);
@@ -162,36 +170,48 @@ public class MipsFrame extends Frame {
 
         mRegArgs = new Temp[] { sA0, sA1, sA2, sA3 };
         mFormalArguments = new LinkedList<>();
-        mOffsetArgs = getWordSize() * 4;
-        mOffsetLocals = 0;
+        mCountLocalVarsInFrame = 0;
+        mFormalArgumentsInFunction = new LinkedList<>();
     }
 
     @Override
     public Frame newFrame(Label name, LinkedList<Boolean> args) {
-        MipsFrame mipsFrame = new MipsFrame();
+        mName = name;
 
-        mipsFrame.mName = name;
-
-        Access access;
         int i = 0;
         Iterator<Boolean> iterator = args.iterator();
 
         while (iterator.hasNext()) {
             boolean isInFrame = iterator.next();
 
+            Access access;
             if (i > 3) {
-                access = new InFrame(mipsFrame.mOffsetArgs);
-                mipsFrame.mOffsetArgs += getWordSize();
+                access = new InFrame(i * getWordSize());
             } else {
-                access = (isInFrame ? new InFrame(getWordSize() * i) : new InReg(mipsFrame.mRegArgs[i]));
+                access = (isInFrame ? new InFrame(i * getWordSize()) : new InReg(mRegArgs[i]));
             }
 
-            mipsFrame.mFormalArguments.add(access);
+            mFormalArguments.add(access);
+            mFormalArgumentsInFunction.add(new InFrame(i * getWordSize()));
 
             i++;
         }
 
-        return mipsFrame;
+        i = 0;
+        for (Access access : mFormalArguments) {
+            if (access instanceof InReg) {
+                InFrame dst = new InFrame(i * getWordSize());
+                IRStatement move = new MOVE(dst.exp(new TEMP(getFP())), access.exp(new TEMP(getFP())));
+                if (mMoveStatements == null) {
+                    mMoveStatements = move;
+                } else {
+                    mMoveStatements = new SEQ(mMoveStatements, move);
+                }
+            }
+            i++;
+        }
+
+        return this;
     }
 
     @Override
@@ -199,8 +219,8 @@ public class MipsFrame extends Frame {
         Access access;
 
         if (inFrame) {
-            mOffsetLocals -= getWordSize();
-            access = new InFrame(mOffsetLocals);
+            mCountLocalVarsInFrame++;
+            access = new InFrame(-(mCountLocalVarsInFrame * getWordSize()));
         } else {
             access = new InReg(new Temp());
         }
@@ -264,13 +284,48 @@ public class MipsFrame extends Frame {
     }
 
     @Override
+    public LinkedList<Access> getFormalArgumentsInFunction() {
+        return mFormalArgumentsInFunction;
+    }
+
+    @Override
     public IRExpression externalCall(String functionName, LinkedList<IRExpression> args) {
         return new CALL(new NAME(Label.newLabel(functionName)), args);
     }
 
     @Override
     public IRStatement procEntryExit1(IRStatement statement) {
-        return statement;
+        // Generate MOVE instructions to save callee-saved registers in the stack frame.
+        LinkedList<Access> listOfFrameSpacesForLocals = new LinkedList<>();
+        LinkedList<Temp> listOfTempsForCalleeSavedRegs = new LinkedList<>();
+
+        Iterator<Temp> calleeSavedRegsIterator = mCalleeSavesRegs.iterator();
+        Temp calleeSavedReg = calleeSavedRegsIterator.next();
+        listOfFrameSpacesForLocals.add(allocLocal(true));
+        IRStatement calleeSavedRegsSaveInstructions = new MOVE(listOfFrameSpacesForLocals.getLast().exp(new TEMP(getFP())), new TEMP(calleeSavedReg));
+        while (calleeSavedRegsIterator.hasNext()) {
+            calleeSavedReg = calleeSavedRegsIterator.next();
+            listOfFrameSpacesForLocals.add(allocLocal(true));
+            calleeSavedRegsSaveInstructions = new SEQ(new MOVE(listOfFrameSpacesForLocals.getLast().exp(new TEMP(getFP())), new TEMP(calleeSavedReg)), calleeSavedRegsSaveInstructions);
+        }
+
+        // Generate MOVE instructions to restore callee-saved registers from the stack frame.
+        calleeSavedRegsIterator = mCalleeSavesRegs.iterator();
+        Iterator<Access> listOfFrameSpacesForLocalsIterator = listOfFrameSpacesForLocals.iterator();
+        calleeSavedReg = calleeSavedRegsIterator.next();
+        IRStatement calleeSavedRegsRestoreInstructions = new MOVE(new TEMP(calleeSavedReg), listOfFrameSpacesForLocalsIterator.next().exp(new TEMP(getFP())));
+        while (calleeSavedRegsIterator.hasNext()) {
+            calleeSavedReg = calleeSavedRegsIterator.next();
+            calleeSavedRegsRestoreInstructions = new SEQ(new MOVE(new TEMP(calleeSavedReg), listOfFrameSpacesForLocalsIterator.next().exp(new TEMP(getFP()))), calleeSavedRegsRestoreInstructions);
+        }
+
+        // Add instructions 'MOVE' to move all incoming arguments in the stack frame.
+        IRStatement body = (mMoveStatements == null) ? statement : new SEQ(mMoveStatements, statement);
+
+        // Add instructions 'MOVE' to save and restore all callee-saved registers.
+        body = new SEQ(calleeSavedRegsSaveInstructions, new SEQ(body, calleeSavedRegsRestoreInstructions));
+
+        return body;
     }
 
     @Override
@@ -280,8 +335,8 @@ public class MipsFrame extends Frame {
     }
 
     @Override
-    public LinkedList<AsmInstruction> procEntryExit3(LinkedList<AsmInstruction> body) {
-        return body;
+    public ProcedureFragment procEntryExit3(LinkedList<AsmInstruction> body) {
+        return null;
     }
 
     @Override
@@ -295,8 +350,19 @@ public class MipsFrame extends Frame {
         return sNamesOfRegs.get(temp);
     }
 
+    @Override
     public LinkedList<Temp> registers() {
-        return sAllRegisters;
+        return mAllRegisters;
+    }
+
+    @Override
+    public int getCountRegisters() {
+        return mSpecialRegs.size() +
+                mArgRegs.size() +
+                mReturnValueRegs.size() +
+                mMoreCalleeSavesRegs.size() +
+                mCalleeSavesRegs.size() +
+                mCallerSavesRegs.size();
     }
 
 }

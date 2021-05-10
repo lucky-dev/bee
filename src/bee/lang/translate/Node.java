@@ -8,19 +8,27 @@ public class Node {
     private Graph mGraph;
     private HashSet<Node> mSuccList;
     private HashSet<Node> mPredList;
+    private HashSet<Node> mTotalAdjNodes;
 
     public Node(Graph graph) {
         mGraph = graph;
         mSuccList = new HashSet<>();
         mPredList = new HashSet<>();
+        mTotalAdjNodes = new HashSet<>();
     }
 
     public void addSucc(Node node) {
-        mSuccList.add(node);
+        if (mGraph == node.mGraph) {
+            mSuccList.add(node);
+            mTotalAdjNodes.add(node);
+        }
     }
 
     public void removeSucc(Node node) {
-        mSuccList.remove(node);
+        if (mGraph == node.mGraph) {
+            mSuccList.remove(node);
+            mTotalAdjNodes.remove(node);
+        }
     }
 
     public LinkedList<Node> succ() {
@@ -28,11 +36,17 @@ public class Node {
     }
 
     public void addPred(Node node) {
-        mPredList.add(node);
+        if (mGraph == node.mGraph) {
+            mPredList.add(node);
+            mTotalAdjNodes.add(node);
+        }
     }
 
     public void removePred(Node node) {
-        mPredList.remove(node);
+        if (mGraph == node.mGraph) {
+            mPredList.remove(node);
+            mTotalAdjNodes.remove(node);
+        }
     }
 
     public LinkedList<Node> pred() {
@@ -40,10 +54,7 @@ public class Node {
     }
 
     public LinkedList<Node> adj() {
-        LinkedList<Node> list = new LinkedList<>();
-        list.addAll(succ());
-        list.addAll(pred());
-        return list;
+        return new LinkedList<>(mTotalAdjNodes);
     }
 
     public int outDegree() {
@@ -55,19 +66,19 @@ public class Node {
     }
 
     public int degree() {
-        return inDegree() + outDegree();
+        return mTotalAdjNodes.size();
     }
 
     public boolean goesTo(Node node) {
-        return mSuccList.contains(node);
+        return ((mGraph == node.mGraph) && (mSuccList.contains(node)));
     }
 
     public boolean comesFrom(Node node) {
-        return mPredList.contains(node);
+        return ((mGraph == node.mGraph) && (mPredList.contains(node)));
     }
 
     public boolean adj(Node node) {
-        return mSuccList.contains(node) || mPredList.contains(node);
+        return ((mGraph == node.mGraph) && (mTotalAdjNodes.contains(node)));
     }
 
 }

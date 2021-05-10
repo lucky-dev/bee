@@ -53,6 +53,8 @@ public class Liveness extends InterferenceGraph {
 
         do {
             for (Node node : flowGraph.nodes()) {
+                _liveIn.get(node).clear();
+                _liveOut.get(node).clear();
                 _liveIn.get(node).addAll(mLiveIn.get(node));
                 _liveOut.get(node).addAll(mLiveOut.get(node));
                 mLiveIn.get(node).addAll(use.get(node));
@@ -173,26 +175,21 @@ public class Liveness extends InterferenceGraph {
 
         StringBuilder sb = new StringBuilder();
 
-        Iterator<Node> iteratorNode = nodes().iterator();
-
-        while (iteratorNode.hasNext()) {
-            Node node = iteratorNode.next();
-
+        for (Node node : nodes()) {
             Temp temp = mTempNode.get(node);
             String tempName = tempMap.tempMap(temp);
             sb.append(tempName == null ? temp.toString() : tempName);
             sb.append(" -> ");
 
-            LinkedList<Node> listNodes = node.adj();
+            LinkedList<Node> listOfAdjNodes = node.adj();
 
-            Iterator<Node> iteratorListNodes =  listNodes.iterator();
+            sb.append("(" + listOfAdjNodes.size() + ") ");
 
-            while (iteratorListNodes.hasNext()) {
-                Node item = iteratorListNodes.next();
-                Temp _temp = mTempNode.get(item);
+            for (Node adjNode : listOfAdjNodes) {
+                Temp _temp = mTempNode.get(adjNode);
                 tempName = tempMap.tempMap(_temp);
                 sb.append(tempName == null ? _temp.toString() : tempName);
-                if (listNodes.getLast() != item) {
+                if (listOfAdjNodes.getLast() != adjNode) {
                     sb.append(", ");
                 }
             }

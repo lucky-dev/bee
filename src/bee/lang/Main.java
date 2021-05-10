@@ -1,6 +1,7 @@
 package bee.lang;
 
 import bee.lang.assembly.AsmInstruction;
+import bee.lang.assembly.AsmMOVE;
 import bee.lang.ast.Program;
 import bee.lang.ir.tree.IRStatement;
 import bee.lang.lexer.Lexer;
@@ -8,7 +9,6 @@ import bee.lang.parser.Parser;
 import bee.lang.semanalysis.*;
 import bee.lang.symtable.BaseScope;
 import bee.lang.translate.*;
-import bee.lang.translate.frame.MipsFrame;
 
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -35,7 +35,7 @@ public class Main {
         NewLayoutsVisitor newLayoutsVisitor = new NewLayoutsVisitor(scope, symbolTableVisitor.getSortedListOfClasses());
         newLayoutsVisitor.visit(program);
         // Translation to IR
-        NewIRTreeVisitor newIRTreeVisitor = new NewIRTreeVisitor(new MipsFrame(), newLayoutsVisitor.getObjectLayout(), newLayoutsVisitor.getClassLayout(), newLayoutsVisitor.getVirtualTable());
+        NewIRTreeVisitor newIRTreeVisitor = new NewIRTreeVisitor(newLayoutsVisitor.getObjectLayout(), newLayoutsVisitor.getClassLayout(), newLayoutsVisitor.getVirtualTable());
         newIRTreeVisitor.visit(program);
 
         TransformIRTree transformIRTree = new TransformIRTree();

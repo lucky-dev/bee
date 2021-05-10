@@ -18,6 +18,8 @@ public abstract class AsmInstruction {
         LinkedList<Temp> srcRegs = getUse();
         LinkedList<Temp> dstRegs = getDef();
 
+        String instruction = mInstruction;
+
         if (srcRegs != null) {
             Iterator<Temp> iterator = srcRegs.iterator();
 
@@ -31,7 +33,7 @@ public abstract class AsmInstruction {
                     value = temp.toString();
                 }
 
-                mInstruction = mInstruction.replace("%s" + i, value);
+                instruction = instruction.replace("%s" + i, value);
 
                 i++;
             }
@@ -50,13 +52,13 @@ public abstract class AsmInstruction {
                     value = temp.toString();
                 }
 
-                mInstruction = mInstruction.replace("%d" + i, value);
+                instruction = instruction.replace("%d" + i, value);
 
                 i++;
             }
         }
 
-        return mInstruction;
+        return instruction;
     }
 
 }

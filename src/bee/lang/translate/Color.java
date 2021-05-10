@@ -15,7 +15,7 @@ public class Color implements TempMap {
     private InterferenceGraph mInterferenceGraph;
     private TempMap mInitTempMap;
 
-    public Color(InterferenceGraph interferenceGraph, TempMap initial, LinkedList<Temp> registers) {
+    public Color(InterferenceGraph interferenceGraph, TempMap initial, LinkedList<Temp> registers, int countRegisters) {
         mInterferenceGraph = interferenceGraph;
 
         mInitTempMap = initial;
@@ -28,14 +28,14 @@ public class Color implements TempMap {
 
         for (Node node : mInterferenceGraph.nodes()) {
             if (initial.tempMap(mInterferenceGraph.getTemp(node)) == null) {
-                if (node.degree() < registers.size()) {
+                if (node.degree() < countRegisters) {
                     availableNodes.add(node);
                 }
+
+                savedEdges.put(node, new LinkedList<>());
             } else {
                 mColorsForTemps.put(node, mInterferenceGraph.getTemp(node));
             }
-
-            savedEdges.put(node, new LinkedList<>());
         }
 
         try {
@@ -54,15 +54,12 @@ public class Color implements TempMap {
                         savedEdges.get(node).add(new Pair<>(adjNode, node));
                     }
 
-                    if ((initial.tempMap(mInterferenceGraph.getTemp(node)) == null) && (node.degree() < registers.size())) {
-                        availableNodes.add(node);
-                    }
-
-                    // Need to spill temporary variable
-                    if ((node.degree() >= registers.size())) {
-                        throw new SelectColorException();
+                    if ((initial.tempMap(mInterferenceGraph.getTemp(adjNode)) == null) && (adjNode.degree() < countRegisters)) {
+                        availableNodes.add(adjNode);
                     }
                 }
+
+                mInterferenceGraph.removeNode(node);
 
                 stack.push(node);
             }
@@ -70,6 +67,8 @@ public class Color implements TempMap {
             // Color
             while (!stack.isEmpty()) {
                 Node node = stack.pop();
+
+                mInterferenceGraph.addNode(node);
 
                 for (Pair<Node, Node> edge : savedEdges.get(node)) {
                     mInterferenceGraph.addEdge(edge.getKey(), edge.getValue());
@@ -88,14 +87,26 @@ public class Color implements TempMap {
                     }
                 }
             }
+
+            for (Node node : mInterferenceGraph.nodes()) {
+                if (mInitTempMap.tempMap(mColorsForTemps.get(node)) == null) {
+                    // Need to spill temporary variable
+                    throw new SelectColorException(mInterferenceGraph.getTemp(node));
+                }
+            }
         } catch (SelectColorException e) {
-            System.out.println(e.toString());
+            e.printStackTrace();
         }
     }
 
     @Override
     public String tempMap(Temp temp) {
-        return mInitTempMap.tempMap(mColorsForTemps.get(mInterferenceGraph.getNode(temp)));
+        String tempName = mInitTempMap.tempMap(mColorsForTemps.get(mInterferenceGraph.getNode(temp)));
+        if (tempName == null) {
+            return mInitTempMap.tempMap(temp);
+        }
+
+        return tempName;
     }
 
     public LinkedList<Temp> spills() {
@@ -104,8 +115,8 @@ public class Color implements TempMap {
 
     private static class SelectColorException extends Exception {
 
-        public SelectColorException() {
-            super("Can not select color for temporary variable.");
+        public SelectColorException(Temp temp) {
+            super("Can not select color for temporary variable " + temp.toString());
         }
 
     }

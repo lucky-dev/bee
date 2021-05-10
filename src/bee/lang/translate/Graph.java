@@ -16,18 +16,32 @@ public class Graph {
 
     public Node newNode() {
         Node node = new Node(this);
-        mAllNodes.add(node);
+        addNode(node);
         return node;
     }
 
+    public void addNode(Node node) {
+        if (!mAllNodes.contains(node)) {
+            mAllNodes.add(node);
+        }
+    }
+
+    public void removeNode(Node node) {
+        mAllNodes.remove(node);
+    }
+
     public void addEdge(Node from, Node to) {
-        from.addSucc(to);
-        to.addPred(from);
+        if ((!from.goesTo(to)) && (!to.comesFrom(from))) {
+            from.addSucc(to);
+            to.addPred(from);
+        }
     }
 
     public void rmEdge(Node from, Node to) {
-        from.removeSucc(to);
-        to.removePred(from);
+        if ((from.goesTo(to)) && (to.comesFrom(from))) {
+            from.removeSucc(to);
+            to.removePred(from);
+        }
     }
 
 }
