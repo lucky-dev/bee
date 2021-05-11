@@ -103,6 +103,7 @@ public class Color implements TempMap {
     public String tempMap(Temp temp) {
         String tempName = mInitTempMap.tempMap(mColorsForTemps.get(mInterferenceGraph.getNode(temp)));
         if (tempName == null) {
+            // If some temporary variable is pre-colored and does not interfere with other temporaries then find it in the frame.
             return mInitTempMap.tempMap(temp);
         }
 

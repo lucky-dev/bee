@@ -20,42 +20,38 @@ public abstract class AsmInstruction {
 
         String instruction = mInstruction;
 
-        if (srcRegs != null) {
-            Iterator<Temp> iterator = srcRegs.iterator();
+        Iterator<Temp> iterator = srcRegs.iterator();
 
-            int i = 0;
-            while (iterator.hasNext()) {
-                Temp temp = iterator.next();
+        int i = 0;
+        while (iterator.hasNext()) {
+            Temp temp = iterator.next();
 
-                String value = tempMap.tempMap(temp);
+            String value = tempMap.tempMap(temp);
 
-                if (value == null) {
-                    value = temp.toString();
-                }
-
-                instruction = instruction.replace("%s" + i, value);
-
-                i++;
+            if (value == null) {
+                value = temp.toString();
             }
+
+            instruction = instruction.replace("%s" + i, value);
+
+            i++;
         }
 
-        if (dstRegs != null) {
-            Iterator<Temp> iterator = dstRegs.iterator();
+        iterator = dstRegs.iterator();
 
-            int i = 0;
-            while (iterator.hasNext()) {
-                Temp temp = iterator.next();
+        i = 0;
+        while (iterator.hasNext()) {
+            Temp temp = iterator.next();
 
-                String value = tempMap.tempMap(temp);
+            String value = tempMap.tempMap(temp);
 
-                if (value == null) {
-                    value = temp.toString();
-                }
-
-                instruction = instruction.replace("%d" + i, value);
-
-                i++;
+            if (value == null) {
+                value = temp.toString();
             }
+
+            instruction = instruction.replace("%d" + i, value);
+
+            i++;
         }
 
         return instruction;

@@ -19,12 +19,13 @@ public abstract class Frame implements TempMap {
     public abstract Temp getFP();
     public abstract Temp getRV();
     public abstract Temp getRA();
+    public abstract Temp getSP();
     public abstract LinkedList<Access> getFormalArguments();
     public abstract LinkedList<Access> getFormalArgumentsInFunction();
     public abstract IRExpression externalCall(String functionName, LinkedList<IRExpression> args);
     public abstract IRStatement procEntryExit1(IRStatement statement);
     public abstract LinkedList<AsmInstruction> procEntryExit2(LinkedList<AsmInstruction> body);
-    public abstract ProcedureFragment procEntryExit3(LinkedList<AsmInstruction> body);
+    public abstract void procEntryExit3(LinkedList<AsmInstruction> body);
     public abstract LinkedList<AsmInstruction> codegen(IRStatement statement);
     public abstract LinkedList<Temp> getSpecialRegs();
     public abstract LinkedList<Temp> getArgRegs();

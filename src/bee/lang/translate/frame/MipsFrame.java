@@ -1,12 +1,12 @@
 package bee.lang.translate.frame;
 
 import bee.lang.assembly.AsmInstruction;
+import bee.lang.assembly.AsmLABEL;
 import bee.lang.assembly.AsmOPER;
 import bee.lang.assembly.MipsCodegen;
 import bee.lang.ir.Label;
 import bee.lang.ir.Temp;
 import bee.lang.ir.tree.*;
-import bee.lang.translate.ProcedureFragment;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -107,7 +107,8 @@ public class MipsFrame extends Frame {
     private LinkedList<Temp> mCallerSavesRegs;
     private LinkedList<Temp> mReturnSink;
     private LinkedList<Temp> mReturnValueRegs;
-    private int mCountLocalVarsInFrame;
+    private int mCountVarsInFrame;
+    private int mCountArgsInFrame;
     private IRStatement mMoveStatements;
     private LinkedList<Temp> mAllRegisters;
 
@@ -170,7 +171,8 @@ public class MipsFrame extends Frame {
 
         mRegArgs = new Temp[] { sA0, sA1, sA2, sA3 };
         mFormalArguments = new LinkedList<>();
-        mCountLocalVarsInFrame = 0;
+        mCountVarsInFrame = 0;
+        mCountArgsInFrame = 0;
         mFormalArgumentsInFunction = new LinkedList<>();
     }
 
@@ -193,6 +195,8 @@ public class MipsFrame extends Frame {
 
             mFormalArguments.add(access);
             mFormalArgumentsInFunction.add(new InFrame(i * getWordSize()));
+
+            mCountArgsInFrame++;
 
             i++;
         }
@@ -219,8 +223,8 @@ public class MipsFrame extends Frame {
         Access access;
 
         if (inFrame) {
-            mCountLocalVarsInFrame++;
-            access = new InFrame(-(mCountLocalVarsInFrame * getWordSize()));
+            mCountVarsInFrame++;
+            access = new InFrame(-(mCountVarsInFrame * getWordSize()));
         } else {
             access = new InReg(new Temp());
         }
@@ -279,6 +283,11 @@ public class MipsFrame extends Frame {
     }
 
     @Override
+    public Temp getSP() {
+        return sSP;
+    }
+
+    @Override
     public LinkedList<Access> getFormalArguments() {
         return mFormalArguments;
     }
@@ -295,9 +304,23 @@ public class MipsFrame extends Frame {
 
     @Override
     public IRStatement procEntryExit1(IRStatement statement) {
+        // Add 'MOVE' instructions to move all incoming arguments in the stack frame.
+        IRStatement body = (mMoveStatements == null) ? statement : new SEQ(mMoveStatements, statement);
+
+        Access accessForRA = allocLocal(true);
+        Access accessForFP = allocLocal(true);
+
+        // Generate MOVE instructions to save and restore return-address and frame-pointer registers in the stack frame.
+        SEQ saveRAFPInstructions = new SEQ(new MOVE(accessForRA.exp(new TEMP(getRA())), new TEMP(getRA())), new MOVE(accessForFP.exp(new TEMP(getFP())), new TEMP(getFP())));
+        SEQ restoreRAFPInstructions = new SEQ(new MOVE(new TEMP(getRA()), accessForRA.exp(new TEMP(getRA()))), new MOVE(new TEMP(getFP()), accessForFP.exp(new TEMP(getFP()))));
+
+        // The MOVE instruction to setup $fp.
+        MOVE setFPInstruction = new MOVE(new TEMP(getFP()), new BINOP(TypeBinOp.MINUS, new TEMP(getSP()), new CONST(mCountArgsInFrame * getWordSize())));
+
+        body = new SEQ(saveRAFPInstructions, new SEQ(setFPInstruction, new SEQ(body, restoreRAFPInstructions)));
+
         // Generate MOVE instructions to save callee-saved registers in the stack frame.
         LinkedList<Access> listOfFrameSpacesForLocals = new LinkedList<>();
-        LinkedList<Temp> listOfTempsForCalleeSavedRegs = new LinkedList<>();
 
         Iterator<Temp> calleeSavedRegsIterator = mCalleeSavesRegs.iterator();
         Temp calleeSavedReg = calleeSavedRegsIterator.next();
@@ -319,10 +342,7 @@ public class MipsFrame extends Frame {
             calleeSavedRegsRestoreInstructions = new SEQ(new MOVE(new TEMP(calleeSavedReg), listOfFrameSpacesForLocalsIterator.next().exp(new TEMP(getFP()))), calleeSavedRegsRestoreInstructions);
         }
 
-        // Add instructions 'MOVE' to move all incoming arguments in the stack frame.
-        IRStatement body = (mMoveStatements == null) ? statement : new SEQ(mMoveStatements, statement);
-
-        // Add instructions 'MOVE' to save and restore all callee-saved registers.
+        // Add 'MOVE' instructions to save and restore all callee-saved registers.
         body = new SEQ(calleeSavedRegsSaveInstructions, new SEQ(body, calleeSavedRegsRestoreInstructions));
 
         return body;
@@ -330,13 +350,21 @@ public class MipsFrame extends Frame {
 
     @Override
     public LinkedList<AsmInstruction> procEntryExit2(LinkedList<AsmInstruction> body) {
+        // mReturnSink contains all registers which are alive from the beginning of procedure to the end of procedure.
+        // These registers interfere with all other registers (virtual and real registers) during execution of the procedure.
         body.add(new AsmOPER("", new LinkedList<>(), mReturnSink));
         return body;
     }
 
     @Override
-    public ProcedureFragment procEntryExit3(LinkedList<AsmInstruction> body) {
-        return null;
+    public void procEntryExit3(LinkedList<AsmInstruction> body) {
+        // The size of stack frame for procedure is count of formal parameters + count of local variables + count of callee-saved registers + $ra + $fp.
+        int sizeOfStackFrame = (mCountVarsInFrame + mCountArgsInFrame + 2) * getWordSize();
+
+        body.addLast(new AsmOPER("addiu $sp, $sp, " + sizeOfStackFrame));
+        body.addFirst(new AsmOPER("addiu $sp, $sp, -" + sizeOfStackFrame));
+        body.addFirst(new AsmLABEL(mName.getName() + ":", mName));
+        body.addLast(new AsmOPER("jr $ra"));
     }
 
     @Override

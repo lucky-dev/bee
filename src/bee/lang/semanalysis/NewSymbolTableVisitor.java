@@ -402,7 +402,10 @@ public class NewSymbolTableVisitor implements BaseVisitor {
 
                 classType.setBaseClass(baseClassType);
 
-                graphOfClasses.get(classIds.get(baseClassName)).add(classIds.get(className));
+                Integer baseClassId = classIds.get(baseClassName);
+                if (baseClassId < graphOfClasses.size()) {
+                    graphOfClasses.get(baseClassId).add(classIds.get(className));
+                }
             } else {
                 graphOfClasses.get(0).add(classIds.get(className));
             }

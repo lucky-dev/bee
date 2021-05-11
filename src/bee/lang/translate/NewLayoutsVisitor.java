@@ -7,6 +7,7 @@ import bee.lang.visitors.BaseVisitor;
 
 import java.util.*;
 
+// This class collects information which will be used in the future to generate vtable (virtual table) for classes and represent fields of objects and classes in the memory.
 public class NewLayoutsVisitor implements BaseVisitor {
 
     private BaseScope mCurrentScope;
@@ -28,15 +29,15 @@ public class NewLayoutsVisitor implements BaseVisitor {
         mMethodLayouts = new HashMap<>();
     }
 
-    public HashMap<String, EntityLayout> getObjectLayout() {
+    public HashMap<String, EntityLayout> getObjectLayouts() {
         return mObjectLayouts;
     }
 
-    public HashMap<String, EntityLayout> getClassLayout() {
+    public HashMap<String, EntityLayout> getClassLayouts() {
         return mClassLayouts;
     }
 
-    public HashMap<String, EntityLayout> getVirtualTable() {
+    public HashMap<String, EntityLayout> getVirtualTables() {
         return mMethodLayouts;
     }
 
@@ -218,7 +219,7 @@ public class NewLayoutsVisitor implements BaseVisitor {
                 symbol = scope.getSymbolInCurrentScope(statement.getIdentifier().getName());
 
                 if (symbol instanceof MethodSymbol) {
-                    // Try to find a method in a base class. The method in the base class must be `public` or `protected`, has the same numbers of formal arguments and has the same return type.
+                    // Try to find a method in a base class. The method in the base class must be `public` or `protected`, has the same numbers of formal arguments, has the same name and has the same return type.
                     while (symbol != null) {
                         if ((((MethodSymbol) symbol).getAccessModifier() == mCurrentMethodSymbol.getAccessModifier()) &&
                                 (((MethodSymbol) symbol).isStatic() == mCurrentMethodSymbol.isStatic()) &&

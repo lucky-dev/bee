@@ -4,6 +4,10 @@ public class DataFragment extends Fragment {
 
     private String mData;
 
+    public DataFragment() {
+        this("");
+    }
+
     public DataFragment(String data) {
         mData = data;
     }

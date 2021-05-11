@@ -1,17 +1,18 @@
 package bee.lang.translate;
 
 import java.util.HashMap;
+import java.util.Set;
 
 // This class is a list. Each node of the list contains a map of values like this: Entity ID -> Position of entity in a class.
-// This information can be used to generate vtable (virtual table) for classes and represent fields of objects in memory.
+// This information can be used to generate vtable (virtual table) for classes and represent fields of objects in the memory.
 public class EntityLayout {
 
-    private HashMap<String, Integer> mPositionOfObject;
+    private HashMap<String, Integer> mPositionOfEntity;
     private EntityLayout mPrevious;
     private int mIndex;
 
     public EntityLayout(EntityLayout previous) {
-        mPositionOfObject = new HashMap<>();
+        mPositionOfEntity = new HashMap<>();
         mPrevious = previous;
         mIndex = (previous == null ? 0 : previous.mIndex);
     }
@@ -21,11 +22,11 @@ public class EntityLayout {
     }
 
     public void add(String key, int position) {
-        mPositionOfObject.put(key, position);
+        mPositionOfEntity.put(key, position);
     }
 
     public int get(String key) {
-        Integer position = mPositionOfObject.get(key);
+        Integer position = mPositionOfEntity.get(key);
 
         if (position == null) {
             if (mPrevious != null) {
@@ -38,6 +39,14 @@ public class EntityLayout {
 
     public int getCountItems() {
         return mIndex;
+    }
+
+    public EntityLayout getPrevious() {
+        return mPrevious;
+    }
+
+    public Set<String> getKeys() {
+        return mPositionOfEntity.keySet();
     }
 
 }

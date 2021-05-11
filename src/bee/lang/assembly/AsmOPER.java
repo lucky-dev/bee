@@ -22,6 +22,10 @@ public class AsmOPER extends AsmInstruction {
         this(asmInstruction, dst, src, new LinkedList<>());
     }
 
+    public AsmOPER(String asmInstruction) {
+        this(asmInstruction, new LinkedList<>(), new LinkedList<>(), new LinkedList<>());
+    }
+
     @Override
     public LinkedList<Temp> getUse() {
         return mSrc;

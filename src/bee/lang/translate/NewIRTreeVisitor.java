@@ -45,23 +45,22 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
     // Arguments for the function '_print_error'.
     // If the first argument equals 0 this means an index is out of size of an array.
 
-    // Function to alloc and initialize block of raw memory.
+    // Function to allocate and initialize block of raw memory.
     private static final String FUNCTION_ALLOC_INIT_RAW_MEMORY = "_alloc_init_block";
 
-    // Function to initialize all non-static fields for an object.
+    // Template of function name to initialize all non-static fields for an object.
     private static final String FUNCTION_INIT_FIELDS = "_%s_init_fields";
 
-    // Function to initialize static fields.
+    // Template of function name to initialize static fields.
     private static final String FUNCTION_INIT_STATIC_FIELDS = "_%s_init_static_fields";
 
-    // Function to alloc and initialize block of raw memory.
+    // Function to allocate and initialize block of memory with chars.
     private static final String FUNCTION_CONVERT_STRING_TO_ARRAY = "_convert_string_to_array";
 
     private static final String CLASS_DESCRIPTION = "_%s_class_description_";
 
     private Label mCurrentLblEnd;
     private Label mCurrentLblBeginLoop;
-    private Label mEndProgramLbl;
     private Label mClassDescriptionLbl;
     private HashMap<String, EntityLayout> mObjectLayouts;
     private HashMap<String, EntityLayout> mClassLayouts;
@@ -92,14 +91,12 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         mMethodLayouts = methodLayouts;
         // The list of fragments keeps all procedures and data.
         mListFragments = new LinkedList<>();
-        // This label must be placed in the end of all code.
-        mEndProgramLbl = Label.newLabel("_end_program_");
         // These maps connect all local variables of a method with objects of the class Access.
         mListLocalVars = new HashMap<>();
         mFirstArgInFunction = new InFrame(0);
     }
 
-    public LinkedList<Fragment> getFragment() {
+    public LinkedList<Fragment> getFragments() {
         return mListFragments;
     }
 
@@ -179,10 +176,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
                                                         new ESEQ(
                                                                 new SEQ(
                                                                         new LABEL(lblFalse),
-                                                                        new SEQ(
-                                                                                new EXP(mCurrentFrame.externalCall(FUNCTION_PRINT_ERROR, args(new CONST(0)))),
-                                                                                new JUMP(mEndProgramLbl)
-                                                                        )
+                                                                        new EXP(mCurrentFrame.externalCall(FUNCTION_PRINT_ERROR, args(new CONST(0))))
                                                                 ),
                                                                 new ESEQ(
                                                                         new LABEL(lblTrue2),
@@ -436,9 +430,9 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         FieldSymbol fieldSymbol = (FieldSymbol) expression.getSymbol();
 
         if (fieldSymbol.isStatic()) {
-            return new Ex(new MEM(new BINOP(TypeBinOp.PLUS, irExpression, new CONST((mClassLayout.get(mCurrentFieldId) + 1) * mCurrentFrame.getWordSize()))));
+            return new Ex(new MEM(new BINOP(TypeBinOp.PLUS, irExpression, new CONST((mClassLayout.get(fieldSymbol.getFieldId()) + 1) * mCurrentFrame.getWordSize()))));
         } else {
-            return new Ex(new MEM(new BINOP(TypeBinOp.PLUS, irExpression, new CONST((mObjectLayout.get(mCurrentFieldId) + 2) * mCurrentFrame.getWordSize()))));
+            return new Ex(new MEM(new BINOP(TypeBinOp.PLUS, irExpression, new CONST((mObjectLayout.get(fieldSymbol.getFieldId()) + 2) * mCurrentFrame.getWordSize()))));
         }
     }
 
@@ -811,7 +805,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
             lblNewStr = Label.newLabelForString(str);
         } else {
             lblNewStr = Label.newLabelForString(str);
-            mListFragments.add(new DataFragment(lblNewStr.getName() + ": .asciiz \"" + str + "\""));
+            mListFragments.add(new StringFragment(lblNewStr.getName(), str));
         }
 
         return new Ex(mCurrentFrame.externalCall(FUNCTION_CONVERT_STRING_TO_ARRAY, args(new NAME(lblNewStr))));
@@ -920,7 +914,9 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         } else {
             LocalVariableSymbol symbol = ((LocalVariableSymbol) statement.getSymbol());
             if (!symbol.isFormalArg()) {
-                mListLocalVars.put(symbol.getVarId(), mCurrentFrame.allocLocal(true));
+                Access access = mCurrentFrame.allocLocal(true);
+                mListLocalVars.put(symbol.getVarId(), access);
+                return new Nx(new MOVE(access.exp(new TEMP(mCurrentFrame.getFP())), irInitExpression.unEx()));
             }
         }
 

@@ -2,10 +2,7 @@ package bee.lang.assembly;
 
 import bee.lang.ir.Temp;
 import bee.lang.ir.tree.*;
-import bee.lang.translate.frame.Access;
 import bee.lang.translate.frame.Frame;
-import bee.lang.translate.frame.InFrame;
-import bee.lang.translate.frame.InReg;
 
 import java.util.Iterator;
 import java.util.LinkedList;
