@@ -311,13 +311,9 @@ public class MipsFrame extends Frame {
         Access accessForFP = allocLocal(true);
 
         // Generate MOVE instructions to save and restore return-address and frame-pointer registers in the stack frame.
-        SEQ saveRAFPInstructions = new SEQ(new MOVE(accessForRA.exp(new TEMP(getRA())), new TEMP(getRA())), new MOVE(accessForFP.exp(new TEMP(getFP())), new TEMP(getFP())));
-        SEQ restoreRAFPInstructions = new SEQ(new MOVE(new TEMP(getRA()), accessForRA.exp(new TEMP(getRA()))), new MOVE(new TEMP(getFP()), accessForFP.exp(new TEMP(getFP()))));
-
-        // The MOVE instruction to setup $fp.
-        MOVE setFPInstruction = new MOVE(new TEMP(getFP()), new BINOP(TypeBinOp.MINUS, new TEMP(getSP()), new CONST(mCountArgsInFrame * getWordSize())));
-
-        body = new SEQ(saveRAFPInstructions, new SEQ(setFPInstruction, new SEQ(body, restoreRAFPInstructions)));
+        Temp oldFP = new Temp();
+        SEQ saveRAFPInstructions = new SEQ(new MOVE(new TEMP(oldFP), new TEMP(getFP())), new SEQ(new MOVE(new TEMP(getFP()), new BINOP(TypeBinOp.PLUS, new TEMP(getSP()), new CONST((mCalleeSavesRegs.size() + 2) * getWordSize()))), new SEQ(new MOVE(accessForRA.exp(new TEMP(getFP())), new TEMP(getRA())), new MOVE(accessForFP.exp(new TEMP(getFP())), new TEMP(oldFP)))));
+        SEQ restoreRAFPInstructions = new SEQ(new MOVE(new TEMP(getRA()), accessForRA.exp(new TEMP(getFP()))), new MOVE(new TEMP(getFP()), accessForFP.exp(new TEMP(getFP()))));
 
         // Generate MOVE instructions to save callee-saved registers in the stack frame.
         LinkedList<Access> listOfFrameSpacesForLocals = new LinkedList<>();
@@ -342,8 +338,7 @@ public class MipsFrame extends Frame {
             calleeSavedRegsRestoreInstructions = new SEQ(new MOVE(new TEMP(calleeSavedReg), listOfFrameSpacesForLocalsIterator.next().exp(new TEMP(getFP()))), calleeSavedRegsRestoreInstructions);
         }
 
-        // Add 'MOVE' instructions to save and restore all callee-saved registers.
-        body = new SEQ(calleeSavedRegsSaveInstructions, new SEQ(body, calleeSavedRegsRestoreInstructions));
+        body = new SEQ(saveRAFPInstructions, new SEQ(calleeSavedRegsSaveInstructions, new SEQ(body, new SEQ(calleeSavedRegsRestoreInstructions, restoreRAFPInstructions))));
 
         return body;
     }
@@ -361,9 +356,10 @@ public class MipsFrame extends Frame {
         // The size of stack frame for procedure is count of formal parameters + count of local variables + count of callee-saved registers + $ra + $fp.
         int sizeOfStackFrame = (mCountVarsInFrame + mCountArgsInFrame + 2) * getWordSize();
 
-        body.addLast(new AsmOPER("addiu $sp, $sp, " + sizeOfStackFrame));
         body.addFirst(new AsmOPER("addiu $sp, $sp, -" + sizeOfStackFrame));
         body.addFirst(new AsmLABEL(mName.getName() + ":", mName));
+        body.addLast(new AsmLABEL("_" + mName.getName() + "_end_:", mName));
+        body.addLast(new AsmOPER("addiu $sp, $sp, " + sizeOfStackFrame));
         body.addLast(new AsmOPER("jr $ra"));
     }
 

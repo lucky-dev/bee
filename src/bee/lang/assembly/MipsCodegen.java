@@ -42,14 +42,14 @@ public class MipsCodegen {
                             return;
                         } else if (binop.getLeftExpression() instanceof CONST) {
                             // MOVE(MEM(BINOP(PLUS, CONST(n), e1)), e2)
-                            mInstructionsList.add(new AsmOPER("sw %s0, " + ((CONST) binop.getLeftExpression()).getValue() + "(%s1)", emptyList(), list(munchExpression(binop.getRightExpression()), munchExpression(move.getSrc()))));
+                            mInstructionsList.add(new AsmOPER("sw %s0, " + ((CONST) binop.getLeftExpression()).getValue() + "(%s1)", emptyList(), list(munchExpression(move.getSrc()), munchExpression(binop.getRightExpression()))));
                             return;
                         }
                     }
                 }
 
                 // MOVE(MEM(e1), e2)
-                mInstructionsList.add(new AsmOPER("sw %s0, 0(%s1)", emptyList(), list(munchExpression(mem.getExpression()), munchExpression(move.getSrc()))));
+                mInstructionsList.add(new AsmOPER("sw %s0, 0(%s1)", emptyList(), list(munchExpression(move.getSrc()), munchExpression(mem.getExpression()))));
                 return;
             }
 

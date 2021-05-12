@@ -5,7 +5,13 @@ public class StringFragment extends DataFragment {
     private String mLabel;
     private String mStr;
 
+    public StringFragment() {
+        this("", "");
+    }
+
     public StringFragment(String label, String str) {
+        super(label + ": " + str);
+
         mLabel = label;
         mStr = str;
     }
@@ -16,11 +22,6 @@ public class StringFragment extends DataFragment {
 
     public String getStr() {
         return mStr;
-    }
-
-    @Override
-    public String toString() {
-        return mLabel + ": " + mStr;
     }
 
 }

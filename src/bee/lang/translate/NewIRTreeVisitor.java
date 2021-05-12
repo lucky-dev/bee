@@ -492,7 +492,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         }
 
         if (symbol instanceof ClassSymbol) {
-            return new Ex(new NAME(mClassDescriptionLbl));
+            return new Ex(new NAME(Label.newLabel(String.format(CLASS_DESCRIPTION, symbol.getIdentifier().getName()))));
         }
 
         return null;
@@ -659,7 +659,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
                                         new SEQ(
                                                 new MOVE(new MEM(new TEMP(newObject)), new TEMP(newSize)),
                                                 new SEQ(
-                                                        new MOVE(new MEM(new BINOP(TypeBinOp.PLUS, new TEMP(newObject), new CONST(mCurrentFrame.getWordSize()))), new NAME(mClassDescriptionLbl)),
+                                                        new MOVE(new MEM(new BINOP(TypeBinOp.PLUS, new TEMP(newObject), new CONST(mCurrentFrame.getWordSize()))), new NAME(Label.newLabel(String.format(CLASS_DESCRIPTION, expression.getType())))),
                                                         new EXP(new CALL(new NAME(Label.newLabel(methodSymbol.getMethodId())), args(new TEMP(newObject))))
                                                 )
                                         )
@@ -808,7 +808,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
             mListFragments.add(new StringFragment(lblNewStr.getName(), str));
         }
 
-        return new Ex(mCurrentFrame.externalCall(FUNCTION_CONVERT_STRING_TO_ARRAY, args(new NAME(lblNewStr))));
+        return new Ex(mCurrentFrame.externalCall(FUNCTION_CONVERT_STRING_TO_ARRAY, args(new CONST(str.length() * getFrame().getWordSize()), new NAME(lblNewStr))));
     }
 
     @Override

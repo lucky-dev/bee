@@ -12,6 +12,8 @@ import bee.lang.symtable.BaseScope;
 import bee.lang.translate.*;
 import bee.lang.translate.frame.Frame;
 
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.LinkedList;
 
 public class Main {
@@ -21,11 +23,8 @@ public class Main {
         Lexer lexer = new Lexer();
         // Parsing
         Parser parser = new Parser(lexer);
-//        Program program = parser.parse("class A { var y : A; var z : int[]; var m : int = 2; static var x : int = 1; constructor(var x : int, var y : int, var z : int) : super() { A.x = 1; if (true) { var s : char[] = \"test\"; } } constructor(var x : int, var y : int) : (x, y, 0) { } f(var x : int, var y : int) : int { var z : int; z = 1; x = 2; y = 3; return z; } f1() { } }");
-//        Program program = parser.parse("class A { var x : int = 3; static var y : int = 7; constructor() : super() { } f() { } }");
-//        Program program = parser.parse("class A { constructor() : super() { } f() { var x : int = 123; var y : int = 7; var z : int; z = x + y; var arr : int[] = new int[1]; arr[0] = 1; x = 2 + f1(5) + 1; if (1 > 2) { } while (2 < 1) { } do { } while(1 < 2); return; } f1(var x : int) : int { return x; } }");
         // Build AST
-        Program program = parser.parse("class Main { static var z : int = 3; var x : int = 4; constructor() : super() { } static main() { Main.z = 5; var obj : Main = new Main(); obj.x = 6; } f1() { var i : int = 0; i = f2(1, 2); } f2(var x : int, var y : int) : int { return x + y; } } class B : Main { constructor() : super() { } }");
+        Program program = parser.parse("class Main { static var z : int = 1; constructor() : super() { } static main() { Main.z = 5; var a : A = new B(); var x : int = a.f(); } } class A { constructor() : super() { } f() : int { return 1; } } class B : A { constructor() : super() { } f1() : int { return 2; } }");
         // Semantic analysis
         NewSymbolTableVisitor symbolTableVisitor = new NewSymbolTableVisitor();
         symbolTableVisitor.visit(program);
