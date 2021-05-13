@@ -80,6 +80,9 @@ ExtendedType -> Type { '[' ']' }
 
 import bee.lang.ast.*;
 import bee.lang.ast.types.*;
+import bee.lang.exceptions.ArrayDimensionException;
+import bee.lang.exceptions.BaseParserException;
+import bee.lang.exceptions.UnexpectedTokenException;
 import bee.lang.lexer.Lexer;
 import bee.lang.lexer.Token;
 import bee.lang.lexer.TokenType;
@@ -102,7 +105,7 @@ public class Parser {
         mLexer = lexer;
     }
 
-    public Program parse(List<String> filePaths) {
+    public Program parse(List<String> filePaths) throws BaseParserException {
         // This variable contains all statements of the program (all classes)
         Program program = new Program();
 
@@ -139,26 +142,17 @@ public class Parser {
                 }
             } catch (IOException e) {
                 e.printStackTrace();
-            } catch (BaseParserException e) {
-                System.out.println(e.toString());
             }
         }
 
         return program;
     }
 
-    public Program parse(String text) {
-        Program program = new Program();
+    public Program parse(String text) throws BaseParserException {
+        mLexer.initState(text, "");
+        mToken = mLexer.getNextToken();
 
-        try {
-            mLexer.initState(text, "");
-            mToken = mLexer.getNextToken();
-            program = program();
-        } catch (BaseParserException e) {
-            System.out.println(e.toString());
-        }
-
-        return program;
+        return program();
     }
 
     private Program program() throws BaseParserException {
@@ -899,40 +893,6 @@ public class Parser {
 
     private Token getPreviousToken() {
         return mPreviousToken;
-    }
-
-    private static class BaseParserException extends Exception {
-
-        protected Token mToken;
-
-        public BaseParserException(Token token) {
-            mToken = token;
-        }
-
-    }
-
-    private static class UnexpectedTokenException extends BaseParserException {
-
-        public UnexpectedTokenException(Token token) {
-            super(token);
-        }
-
-        public String toString() {
-            return "[" + mToken.getFileName() + " : " + mToken.getLine() + "] Unexpected token '" + mToken.getTokenType() + "'.";
-        }
-
-    }
-
-    private static class ArrayDimensionException extends BaseParserException {
-
-        public ArrayDimensionException(Token token) {
-            super(token);
-        }
-
-        public String toString() {
-            return "[" + mToken.getFileName() + " : " + mToken.getLine() + "] Compiler does not support multidimensional arrays.";
-        }
-
     }
 
 }

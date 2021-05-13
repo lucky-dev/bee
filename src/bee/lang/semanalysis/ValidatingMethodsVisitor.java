@@ -2,19 +2,43 @@ package bee.lang.semanalysis;
 
 import bee.lang.ast.*;
 import bee.lang.ast.types.MethodType;
-import bee.lang.ast.types.Type;
+import bee.lang.exceptions.ValidatingMethodsException;
 import bee.lang.lexer.Token;
-import bee.lang.symtable.*;
+import bee.lang.symtable.BaseScope;
+import bee.lang.symtable.ClassSymbol;
+import bee.lang.symtable.MethodSymbol;
+import bee.lang.symtable.Symbol;
 import bee.lang.visitors.BaseVisitor;
 
-import java.util.*;
+import java.util.Iterator;
 
 public class ValidatingMethodsVisitor implements BaseVisitor {
 
+    private final static String ENTRY_POINT_METHOD = "main";
+
     private BaseScope mCurrentScope;
+    private MethodSymbol mEntryPointMethod;
+    private boolean hasErrors;
 
     public ValidatingMethodsVisitor(BaseScope scope) {
         mCurrentScope = scope;
+        hasErrors = false;
+    }
+
+    public MethodSymbol getEntryPointMethod() {
+        return mEntryPointMethod;
+    }
+
+    public void validateMethods(Program program) throws ValidatingMethodsException {
+        visit(program);
+
+        if (mEntryPointMethod == null) {
+            throw new ValidatingMethodsException("No entry point. Need to add the method 'main' to some class.");
+        }
+
+        if (hasErrors) {
+            throw new ValidatingMethodsException();
+        }
     }
 
     @Override
@@ -196,6 +220,17 @@ public class ValidatingMethodsVisitor implements BaseVisitor {
 
             scope = scope.getEnclosingScope();
         }
+
+        if ((currentMethod.isStatic()) &&
+                (currentMethod.getIdentifier().getName().equals(ENTRY_POINT_METHOD)) &&
+                (((MethodType) currentMethod.getType()).getFormalArgumentTypes().isEmpty()) &&
+                (((MethodType) currentMethod.getType()).getReturnType().isVoid())) {
+            if (mEntryPointMethod == null) {
+                mEntryPointMethod = currentMethod;
+            } else {
+                printErrorMessage(statement.getIdentifier().getToken(), "'" + mCurrentScope + "' can not have the method 'main' because it is defined in the class '" + mEntryPointMethod.getEnclosingScope().getScopeName() + "'.");
+            }
+        }
     }
 
     @Override
@@ -285,6 +320,7 @@ public class ValidatingMethodsVisitor implements BaseVisitor {
     }
 
     private void printErrorMessage(Token token, String message) {
+        hasErrors = true;
         System.out.println((token == null ? "" : "[ " + token.getFileName() + " : " + token.getLine() + " ] ") + message);
     }
 

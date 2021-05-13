@@ -1,12 +1,13 @@
 package bee.lang.translate.frame;
 
 import bee.lang.assembly.AsmInstruction;
+import bee.lang.assembly.MipsCodegen;
 import bee.lang.assembly.TempMap;
+import bee.lang.exceptions.CodegenException;
 import bee.lang.ir.Label;
 import bee.lang.ir.Temp;
 import bee.lang.ir.tree.IRExpression;
 import bee.lang.ir.tree.IRStatement;
-import bee.lang.translate.ProcedureFragment;
 
 import java.util.LinkedList;
 
@@ -26,7 +27,7 @@ public abstract class Frame implements TempMap {
     public abstract IRStatement procEntryExit1(IRStatement statement);
     public abstract LinkedList<AsmInstruction> procEntryExit2(LinkedList<AsmInstruction> body);
     public abstract void procEntryExit3(LinkedList<AsmInstruction> body);
-    public abstract LinkedList<AsmInstruction> codegen(IRStatement statement);
+    public abstract LinkedList<AsmInstruction> codegen(IRStatement statement) throws CodegenException;
     public abstract LinkedList<Temp> getSpecialRegs();
     public abstract LinkedList<Temp> getArgRegs();
     public abstract LinkedList<Temp> getReturnValueRegs();

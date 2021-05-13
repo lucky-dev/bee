@@ -2,6 +2,7 @@ package bee.lang.semanalysis;
 
 import bee.lang.ast.*;
 import bee.lang.ast.types.*;
+import bee.lang.exceptions.TypeCheckingException;
 import bee.lang.lexer.Token;
 import bee.lang.symtable.*;
 import bee.lang.visitors.TypeVisitor;
@@ -19,6 +20,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
     private boolean isConst;
     private boolean isReturnStatement;
     private boolean isValidatingOtherConstructor;
+    private boolean hasErrors;
 
     public TypeCheckingVisitor(BaseScope baseScope) {
         mBaseScope = baseScope;
@@ -27,6 +29,15 @@ public class TypeCheckingVisitor implements TypeVisitor {
         isConst = false;
         isReturnStatement = false;
         isValidatingOtherConstructor = false;
+        hasErrors = false;
+    }
+
+    public void check(Program program) throws TypeCheckingException {
+        visit(program);
+
+        if (hasErrors) {
+            throw new TypeCheckingException();
+        }
     }
 
     @Override
@@ -1188,6 +1199,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
     }
 
     protected void printErrorMessage(Token token, String message) {
+        hasErrors = true;
         System.out.println("[ " + token.getFileName() + " : " + token.getLine() + " ] " + message);
     }
 

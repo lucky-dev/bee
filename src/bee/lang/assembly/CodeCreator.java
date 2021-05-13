@@ -11,6 +11,8 @@ public abstract class CodeCreator {
     public abstract void addVtables(HashMap<String, LinkedList<String>> vtables);
     public abstract void addProcedure(String procedure);
     public abstract void addClassDescriptors(HashMap<String, Integer> staticFields);
+    public abstract void addEntryPoint(String entryPoint);
+    public abstract void addProceduresForInitStaticFields(LinkedList<String> listOfProcedures);
     public abstract String create();
 
     public HashMap<String, LinkedList<String>> generateVtables(HashMap<String, EntityLayout> methodLayouts) {

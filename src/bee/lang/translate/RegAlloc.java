@@ -2,6 +2,7 @@ package bee.lang.translate;
 
 import bee.lang.assembly.AsmInstruction;
 import bee.lang.assembly.TempMap;
+import bee.lang.exceptions.SelectColorException;
 import bee.lang.ir.Temp;
 import bee.lang.translate.frame.Frame;
 
@@ -13,7 +14,7 @@ public class RegAlloc implements TempMap {
     private Color mColor;
     private Frame mFrame;
 
-    public RegAlloc(Frame frame, LinkedList<AsmInstruction> asmInstructions) {
+    public RegAlloc(Frame frame, LinkedList<AsmInstruction> asmInstructions) throws SelectColorException {
         mFrame = frame;
 
         AsmFlowGraph asmFlowGraph = new AsmFlowGraph(asmInstructions);

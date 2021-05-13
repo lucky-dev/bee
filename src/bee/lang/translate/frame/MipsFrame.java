@@ -4,6 +4,7 @@ import bee.lang.assembly.AsmInstruction;
 import bee.lang.assembly.AsmLABEL;
 import bee.lang.assembly.AsmOPER;
 import bee.lang.assembly.MipsCodegen;
+import bee.lang.exceptions.CodegenException;
 import bee.lang.ir.Label;
 import bee.lang.ir.Temp;
 import bee.lang.ir.tree.*;
@@ -103,7 +104,6 @@ public class MipsFrame extends Frame {
     private LinkedList<Temp> mSpecialRegs;
     private LinkedList<Temp> mArgRegs;
     private LinkedList<Temp> mCalleeSavesRegs;
-    private LinkedList<Temp> mMoreCalleeSavesRegs;
     private LinkedList<Temp> mCallerSavesRegs;
     private LinkedList<Temp> mReturnSink;
     private LinkedList<Temp> mReturnValueRegs;
@@ -142,10 +142,8 @@ public class MipsFrame extends Frame {
         mCalleeSavesRegs.add(sT5);
         mCalleeSavesRegs.add(sT6);
         mCalleeSavesRegs.add(sT7);
-
-        mMoreCalleeSavesRegs = new LinkedList<>();
-        mMoreCalleeSavesRegs.add(sT8);
-        mMoreCalleeSavesRegs.add(sT9);
+        mCalleeSavesRegs.add(sT8);
+        mCalleeSavesRegs.add(sT9);
 
         mCallerSavesRegs = new LinkedList<>();
         mCallerSavesRegs.add(sS0);
@@ -178,44 +176,42 @@ public class MipsFrame extends Frame {
 
     @Override
     public Frame newFrame(Label name, LinkedList<Boolean> args) {
-        mName = name;
+        MipsFrame mipsFrame = new MipsFrame();
+
+        mipsFrame.mName = name;
 
         int i = 0;
-        Iterator<Boolean> iterator = args.iterator();
-
-        while (iterator.hasNext()) {
-            boolean isInFrame = iterator.next();
-
+        for (boolean isInFrame : args) {
             Access access;
             if (i > 3) {
                 access = new InFrame(i * getWordSize());
             } else {
-                access = (isInFrame ? new InFrame(i * getWordSize()) : new InReg(mRegArgs[i]));
+                access = (isInFrame ? new InFrame(i * getWordSize()) : new InReg(mipsFrame.mRegArgs[i]));
             }
 
-            mFormalArguments.add(access);
-            mFormalArgumentsInFunction.add(new InFrame(i * getWordSize()));
+            mipsFrame.mFormalArguments.add(access);
+            mipsFrame.mFormalArgumentsInFunction.add(new InFrame(i * getWordSize()));
 
-            mCountArgsInFrame++;
+            mipsFrame.mCountArgsInFrame++;
 
             i++;
         }
 
         i = 0;
-        for (Access access : mFormalArguments) {
+        for (Access access : mipsFrame.mFormalArguments) {
             if (access instanceof InReg) {
                 InFrame dst = new InFrame(i * getWordSize());
                 IRStatement move = new MOVE(dst.exp(new TEMP(getFP())), access.exp(new TEMP(getFP())));
-                if (mMoveStatements == null) {
-                    mMoveStatements = move;
+                if (mipsFrame.mMoveStatements == null) {
+                    mipsFrame.mMoveStatements = move;
                 } else {
-                    mMoveStatements = new SEQ(mMoveStatements, move);
+                    mipsFrame.mMoveStatements = new SEQ(mipsFrame.mMoveStatements, move);
                 }
             }
             i++;
         }
 
-        return this;
+        return mipsFrame;
     }
 
     @Override
@@ -364,7 +360,7 @@ public class MipsFrame extends Frame {
     }
 
     @Override
-    public LinkedList<AsmInstruction> codegen(IRStatement statement) {
+    public LinkedList<AsmInstruction> codegen(IRStatement statement) throws CodegenException {
         MipsCodegen mipsCodegen = new MipsCodegen(this);
         return mipsCodegen.codegen(statement);
     }
@@ -384,7 +380,6 @@ public class MipsFrame extends Frame {
         return mSpecialRegs.size() +
                 mArgRegs.size() +
                 mReturnValueRegs.size() +
-                mMoreCalleeSavesRegs.size() +
                 mCalleeSavesRegs.size() +
                 mCallerSavesRegs.size();
     }

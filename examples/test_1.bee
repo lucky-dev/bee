@@ -1,0 +1,33 @@
+class Main {
+	static var z : int = 3;
+	
+	constructor() : super() {
+	}
+	
+	static main() {
+		var a : A = new B();
+		var x : int = a.f() + Main.z;
+	}
+}
+
+class A {
+	static var z : int = 4;
+	
+	constructor() : super() {
+	}
+	
+	f() : int {
+		return 1;
+	}
+}
+
+class B : A {
+	static var z : int = 5;
+	
+	constructor() : super() {
+	}
+	
+	f1() : int {
+		return 2;
+	}
+}

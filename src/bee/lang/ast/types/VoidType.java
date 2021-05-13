@@ -13,7 +13,7 @@ public class VoidType extends BaseType {
 
     @Override
     public boolean isVoid() {
-        return false;
+        return true;
     }
 
     public String toString() {

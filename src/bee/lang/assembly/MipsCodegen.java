@@ -1,5 +1,6 @@
 package bee.lang.assembly;
 
+import bee.lang.exceptions.CodegenException;
 import bee.lang.ir.Temp;
 import bee.lang.ir.tree.*;
 import bee.lang.translate.frame.Frame;
@@ -17,15 +18,9 @@ public class MipsCodegen {
         mInstructionsList = new LinkedList<>();
     }
 
-    public LinkedList<AsmInstruction> codegen(IRStatement statement) {
-        try {
-            munchStatement(statement);
-            return mInstructionsList;
-        } catch (CodegenException e) {
-            System.out.println(e.toString());
-        }
-
-        return new LinkedList<>();
+    public LinkedList<AsmInstruction> codegen(IRStatement statement) throws CodegenException {
+        munchStatement(statement);
+        return mInstructionsList;
     }
 
     private void munchStatement(IRStatement statement) throws CodegenException {
@@ -273,18 +268,6 @@ public class MipsCodegen {
 
     private <T> LinkedList<T> emptyList() {
         return new LinkedList<>();
-    }
-
-    private static class CodegenException extends Exception {
-
-        public CodegenException(IRStatement statement) {
-            super("There is no pattern for the tree: " + statement);
-        }
-
-        public CodegenException(IRExpression expression) {
-            super("There is no pattern for the tree: " + expression);
-        }
-
     }
 
 }

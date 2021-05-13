@@ -1,5 +1,6 @@
 package bee.lang.translate;
 
+import bee.lang.Constants;
 import bee.lang.ast.*;
 import bee.lang.ir.Label;
 import bee.lang.ir.Temp;
@@ -8,7 +9,6 @@ import bee.lang.symtable.*;
 import bee.lang.translate.frame.Access;
 import bee.lang.translate.frame.Frame;
 import bee.lang.translate.frame.InFrame;
-import bee.lang.translate.frame.MipsFrame;
 import bee.lang.translate.ir.Ex;
 import bee.lang.translate.ir.Nx;
 import bee.lang.translate.ir.RelCx;
@@ -40,25 +40,6 @@ import java.util.LinkedList;
 
 public class NewIRTreeVisitor implements IRTreeVisitor {
 
-    // Function to print an error message.
-    private static final String FUNCTION_PRINT_ERROR = "_print_error";
-    // Arguments for the function '_print_error'.
-    // If the first argument equals 0 this means an index is out of size of an array.
-
-    // Function to allocate and initialize block of raw memory.
-    private static final String FUNCTION_ALLOC_INIT_RAW_MEMORY = "_alloc_init_block";
-
-    // Template of function name to initialize all non-static fields for an object.
-    private static final String FUNCTION_INIT_FIELDS = "_%s_init_fields";
-
-    // Template of function name to initialize static fields.
-    private static final String FUNCTION_INIT_STATIC_FIELDS = "_%s_init_static_fields";
-
-    // Function to allocate and initialize block of memory with chars.
-    private static final String FUNCTION_CONVERT_STRING_TO_ARRAY = "_convert_string_to_array";
-
-    private static final String CLASS_DESCRIPTION = "_%s_class_description_";
-
     private Label mCurrentLblEnd;
     private Label mCurrentLblBeginLoop;
     private Label mClassDescriptionLbl;
@@ -84,8 +65,11 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
     private Label mMethodReturnLbl;
     private boolean isReturnStatement;
     private Access mFirstArgInFunction;
+    private Frame mFrame;
+    private LinkedList<String> mListOfMethodsInitStaticFields;
 
-    public NewIRTreeVisitor(HashMap<String, EntityLayout> objectLayouts, HashMap<String, EntityLayout> classLayouts, HashMap<String, EntityLayout> methodLayouts) {
+    public NewIRTreeVisitor(Frame frame, HashMap<String, EntityLayout> objectLayouts, HashMap<String, EntityLayout> classLayouts, HashMap<String, EntityLayout> methodLayouts) {
+        mFrame = frame;
         mObjectLayouts = objectLayouts;
         mClassLayouts = classLayouts;
         mMethodLayouts = methodLayouts;
@@ -94,14 +78,15 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         // These maps connect all local variables of a method with objects of the class Access.
         mListLocalVars = new HashMap<>();
         mFirstArgInFunction = new InFrame(0);
+        mListOfMethodsInitStaticFields = new LinkedList<>();
     }
 
     public LinkedList<Fragment> getFragments() {
         return mListFragments;
     }
 
-    private Frame getFrame() {
-        return new MipsFrame();
+    public LinkedList<String> getListOfMethodsInitStaticFields() {
+        return mListOfMethodsInitStaticFields;
     }
 
     @Override
@@ -176,7 +161,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
                                                         new ESEQ(
                                                                 new SEQ(
                                                                         new LABEL(lblFalse),
-                                                                        new EXP(mCurrentFrame.externalCall(FUNCTION_PRINT_ERROR, args(new CONST(0))))
+                                                                        new EXP(mCurrentFrame.externalCall(Constants.FUNCTION_PRINT_ERROR, args(new CONST(0))))
                                                                 ),
                                                                 new ESEQ(
                                                                         new LABEL(lblTrue2),
@@ -267,15 +252,17 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         mMethodLayout = mMethodLayouts.get(className);
         mClassLayout = mClassLayouts.get(className);
 
-        mClassDescriptionLbl = Label.newLabel(String.format(CLASS_DESCRIPTION, className));
+        mClassDescriptionLbl = Label.newLabel(String.format(Constants.CLASS_DESCRIPTION, className));
 
         // Create a new method like this '_<class name>_init_static_fields'. This method is used to initialize all static fields.
         // This method will be called immediately for loaded class.
-        mInitStaticFieldsFrame = getFrame().newFrame(Label.newLabel(String.format(FUNCTION_INIT_STATIC_FIELDS, className)), new LinkedList<>());
+        String nameOfMethod = String.format(Constants.FUNCTION_INIT_STATIC_FIELDS, className);
+        mListOfMethodsInitStaticFields.add(nameOfMethod);
+        mInitStaticFieldsFrame = mFrame.newFrame(Label.newLabel(nameOfMethod), new LinkedList<>());
 
         // Create a new method like this '_<class name>_init_fields'. This method is used to initialize all non-static fields.
         // This method will be called by a constructor after calling a super constructor.
-        mInitFieldsFrame = getFrame().newFrame(Label.newLabel(String.format(FUNCTION_INIT_FIELDS, className)), args(false));
+        mInitFieldsFrame = mFrame.newFrame(Label.newLabel(String.format(Constants.FUNCTION_INIT_FIELDS, className)), args(false));
 
         statement.getFieldDefinitions().visit(this);
 
@@ -323,7 +310,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
             procedureArgs.add(false);
         }
 
-        mCurrentFrame = getFrame().newFrame(Label.newLabel(methodName), procedureArgs);
+        mCurrentFrame = mFrame.newFrame(Label.newLabel(methodName), procedureArgs);
 
         statementsIterator = statement.getFormalArgumentsList().getStatementsList().iterator();
         Iterator<Access> formalArgsIterator = mCurrentFrame.getFormalArgumentsInFunction().iterator();
@@ -344,7 +331,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         IRStatement callsOtherConstructors;
 
         if (statement.getSuperConstructorArgumentsList() != null) {
-            IRStatement callInitFields = new EXP(new CALL(new NAME(Label.newLabel(String.format(FUNCTION_INIT_FIELDS, mCurrentClassSymbol.getIdentifier().getName()))), args(mFirstArgInFunction.exp(new TEMP(mCurrentFrame.getFP())))));
+            IRStatement callInitFields = new EXP(new CALL(new NAME(Label.newLabel(String.format(Constants.FUNCTION_INIT_FIELDS, mCurrentClassSymbol.getIdentifier().getName()))), args(mFirstArgInFunction.exp(new TEMP(mCurrentFrame.getFP())))));
 
             if (mCurrentClassSymbol.getBaseClassIdentifier() != null) {
                 String superConstructorId = ((MethodSymbol) statement.getOtherConstructorSymbol()).getMethodId();
@@ -492,7 +479,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         }
 
         if (symbol instanceof ClassSymbol) {
-            return new Ex(new NAME(Label.newLabel(String.format(CLASS_DESCRIPTION, symbol.getIdentifier().getName()))));
+            return new Ex(new NAME(Label.newLabel(String.format(Constants.CLASS_DESCRIPTION, symbol.getIdentifier().getName()))));
         }
 
         return null;
@@ -585,7 +572,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
             statementsIterator.next();
         }
 
-        mCurrentFrame = getFrame().newFrame(Label.newLabel(methodName), args);
+        mCurrentFrame = mFrame.newFrame(Label.newLabel(methodName), args);
 
         statementsIterator = statement.getFormalArgumentsList().getStatementsList().iterator();
         Iterator<Access> formalArgsIterator = mCurrentFrame.getFormalArgumentsInFunction().iterator();
@@ -633,7 +620,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
                                 new SEQ(
                                         new MOVE(new TEMP(newSize), new BINOP(TypeBinOp.MUL, new BINOP(TypeBinOp.PLUS, new TEMP(originalSize), new CONST(1)), new CONST(mCurrentFrame.getWordSize()))),
                                         new SEQ(
-                                                new MOVE(new TEMP(newArray), mCurrentFrame.externalCall(FUNCTION_ALLOC_INIT_RAW_MEMORY, args(new TEMP(newSize)))),
+                                                new MOVE(new TEMP(newArray), mCurrentFrame.externalCall(Constants.FUNCTION_ALLOC_INIT_RAW_MEMORY, args(new TEMP(newSize)))),
                                                 new MOVE(new MEM(new TEMP(newArray)), new TEMP(originalSize))
                                         )
                                 )
@@ -655,11 +642,11 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
                         new SEQ(
                                 new MOVE(new TEMP(newSize), new CONST((mObjectLayout.getCountItems() + 2) * mCurrentFrame.getWordSize())),
                                 new SEQ(new MOVE(
-                                        new TEMP(newObject), mCurrentFrame.externalCall(FUNCTION_ALLOC_INIT_RAW_MEMORY, args(new TEMP(newSize)))),
+                                        new TEMP(newObject), mCurrentFrame.externalCall(Constants.FUNCTION_ALLOC_INIT_RAW_MEMORY, args(new TEMP(newSize)))),
                                         new SEQ(
                                                 new MOVE(new MEM(new TEMP(newObject)), new TEMP(newSize)),
                                                 new SEQ(
-                                                        new MOVE(new MEM(new BINOP(TypeBinOp.PLUS, new TEMP(newObject), new CONST(mCurrentFrame.getWordSize()))), new NAME(Label.newLabel(String.format(CLASS_DESCRIPTION, expression.getType())))),
+                                                        new MOVE(new MEM(new BINOP(TypeBinOp.PLUS, new TEMP(newObject), new CONST(mCurrentFrame.getWordSize()))), new NAME(Label.newLabel(String.format(Constants.CLASS_DESCRIPTION, expression.getType())))),
                                                         new EXP(new CALL(new NAME(Label.newLabel(methodSymbol.getMethodId())), args(new TEMP(newObject))))
                                                 )
                                         )
@@ -808,7 +795,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
             mListFragments.add(new StringFragment(lblNewStr.getName(), str));
         }
 
-        return new Ex(mCurrentFrame.externalCall(FUNCTION_CONVERT_STRING_TO_ARRAY, args(new CONST(str.length() * getFrame().getWordSize()), new NAME(lblNewStr))));
+        return new Ex(mCurrentFrame.externalCall(Constants.FUNCTION_CONVERT_STRING_TO_ARRAY, args(new CONST(str.length() * mFrame.getWordSize()), new NAME(lblNewStr))));
     }
 
     @Override

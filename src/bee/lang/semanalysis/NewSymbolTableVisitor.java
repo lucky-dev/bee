@@ -4,6 +4,7 @@ import bee.lang.ast.*;
 import bee.lang.ast.types.ClassType;
 import bee.lang.ast.types.MethodType;
 import bee.lang.ast.types.Type;
+import bee.lang.exceptions.SymbolTableException;
 import bee.lang.lexer.Token;
 import bee.lang.symtable.*;
 import bee.lang.visitors.BaseVisitor;
@@ -22,10 +23,12 @@ public class NewSymbolTableVisitor implements BaseVisitor {
     private int mCountVars;
     private LinkedList<String> mSortedListOfClasses;
     private boolean isHeaderFunction;
+    private boolean hasErrors;
 
     public NewSymbolTableVisitor() {
         mCurrentScope = new GlobalScope(null);
         mSortedListOfClasses = new LinkedList<>();
+        hasErrors = false;
     }
 
     public BaseScope getCurrentScope() {
@@ -34,6 +37,14 @@ public class NewSymbolTableVisitor implements BaseVisitor {
 
     public LinkedList<String> getSortedListOfClasses() {
         return mSortedListOfClasses;
+    }
+
+    public void createSymbolTable(Program program) throws SymbolTableException {
+        visit(program);
+
+        if (hasErrors) {
+            throw new SymbolTableException();
+        }
     }
 
     @Override
@@ -537,6 +548,7 @@ public class NewSymbolTableVisitor implements BaseVisitor {
     }
 
     private void printErrorMessage(Token token, String message) {
+        hasErrors = true;
         System.out.println((token == null ? "" : "[ " + token.getFileName() + " : " + token.getLine() + " ] ") + message);
     }
 

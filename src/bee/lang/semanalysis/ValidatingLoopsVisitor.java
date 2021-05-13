@@ -1,6 +1,7 @@
 package bee.lang.semanalysis;
 
 import bee.lang.ast.*;
+import bee.lang.exceptions.ValidatingLoopsException;
 import bee.lang.lexer.Token;
 import bee.lang.visitors.BaseVisitor;
 
@@ -9,6 +10,19 @@ import java.util.*;
 public class ValidatingLoopsVisitor implements BaseVisitor {
 
     private int mCountLoops = 0;
+    private boolean hasErrors;
+
+    public ValidatingLoopsVisitor() {
+        hasErrors = false;
+    }
+
+    public void validateLoops(Program program) throws ValidatingLoopsException {
+        visit(program);
+
+        if (hasErrors) {
+            throw new ValidatingLoopsException();
+        }
+    }
 
     @Override
     public void visit(Add expression) {
@@ -224,6 +238,7 @@ public class ValidatingLoopsVisitor implements BaseVisitor {
     }
 
     private void printErrorMessage(Token token, String message) {
+        hasErrors = true;
         System.out.println((token == null ? "" : "[ " + token.getFileName() + " : " + token.getLine() + " ] ") + message);
     }
 

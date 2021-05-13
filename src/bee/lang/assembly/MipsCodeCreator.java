@@ -1,17 +1,19 @@
 package bee.lang.assembly;
 
+import bee.lang.Constants;
+
 import java.util.HashMap;
 import java.util.LinkedList;
 
 public class MipsCodeCreator extends CodeCreator {
-
-    private final String ENTRY_POINT = "main";
 
     private LinkedList<String> mListOfStrings;
     private LinkedList<String> mListOfVtables;
     private LinkedList<String> mListOfClassDescriptors;
     private LinkedList<String> mListOfProcedures;
     private StringBuilder mRuntimeCode;
+    private String mEntryPoint;
+    private LinkedList<String> mListOfMethodsInitStaticFields;
 
     public MipsCodeCreator() {
         mListOfStrings = new LinkedList<>();
@@ -19,6 +21,7 @@ public class MipsCodeCreator extends CodeCreator {
         mListOfClassDescriptors = new LinkedList<>();
         mListOfProcedures = new LinkedList<>();
         mRuntimeCode = new StringBuilder();
+        mListOfMethodsInitStaticFields = new LinkedList<>();
     }
     
     @Override
@@ -49,7 +52,7 @@ public class MipsCodeCreator extends CodeCreator {
                 sb.append("0");
             }
 
-            mListOfVtables.add(className + "_vtable: .word " + sb.toString());
+            mListOfVtables.add(String.format(Constants.VTABLE, className) + ": .word " + sb.toString());
         }
     }
 
@@ -63,8 +66,18 @@ public class MipsCodeCreator extends CodeCreator {
                 sb.append(", 0");
             }
 
-            mListOfClassDescriptors.add("_" + className + "_class_description_: .word " + className + "_vtable " + sb.toString());
+            mListOfClassDescriptors.add(String.format(Constants.CLASS_DESCRIPTION, className) + ": .word " + String.format(Constants.VTABLE, className) + " " + sb.toString());
         }
+    }
+
+    @Override
+    public void addEntryPoint(String entryPoint) {
+        mEntryPoint = entryPoint;
+    }
+
+    @Override
+    public void addProceduresForInitStaticFields(LinkedList<String> listOfProcedures) {
+        mListOfMethodsInitStaticFields.addAll(listOfProcedures);
     }
 
     @Override
@@ -73,44 +86,53 @@ public class MipsCodeCreator extends CodeCreator {
 
         StringBuilder sb = new StringBuilder();
 
-        sb.append(".data");
-        sb.append("\n\n");
+        sb.append(".data\n");
+
+        sb.append("\n");
 
         for (String str : mListOfStrings) {
-            sb.append(str);
-            sb.append("\n");
+            sb.append(str).append("\n");
         }
 
         sb.append("\n");
 
         for (String vtable : mListOfVtables) {
-            sb.append(vtable);
-            sb.append("\n");
+            sb.append(vtable).append("\n");
         }
 
         sb.append("\n");
 
         for (String classDescriptor : mListOfClassDescriptors) {
-            sb.append(classDescriptor);
-            sb.append("\n");
+            sb.append(classDescriptor).append("\n");
         }
 
         sb.append("\n");
-        sb.append(".globl ");
-        sb.append(ENTRY_POINT);
-        sb.append("\n\n");
-        sb.append(".text");
-        sb.append("\n\n");
+        sb.append(".globl main\n");
+        sb.append("\n");
+        sb.append(".text\n");
+        sb.append("\n");
+
+        sb.append("main:\n");
+
+        for (String procedureName : mListOfMethodsInitStaticFields) {
+            sb.append("jal ").append(procedureName).append("\n");
+        }
+
+        sb.append("jal ").append(mEntryPoint).append("\n");
+
+        sb.append("b _end_program_\n");
+
+        sb.append("\n");
 
         for (String procedure : mListOfProcedures) {
-            sb.append(procedure);
-            sb.append("\n");
+            sb.append(procedure).append("\n");
         }
 
         sb.append("\n");
-        sb.append(mRuntimeCode.toString());
-        sb.append("\n\n");
-        sb.append("_end_program_:");
+
+        sb.append(mRuntimeCode.toString()).append("\n");
+
+        sb.append("_end_program_:\n");
 
         return sb.toString();
     }
@@ -118,7 +140,8 @@ public class MipsCodeCreator extends CodeCreator {
     private void generateRuntimeLibsCode() {
         mListOfStrings.add("error_array_out_of_bounds: .asciiz \"Index of array is out of bounds\"");
 
-        mRuntimeCode.append("_print_error:\n");
+        mRuntimeCode.append(Constants.FUNCTION_PRINT_ERROR);
+        mRuntimeCode.append(":\n");
         mRuntimeCode.append("\tli $t0, 0\n");
         mRuntimeCode.append("\tbne $a0, $t0, _print_error_lbl_false\n");
         mRuntimeCode.append("\tli $v0, 4\n");
@@ -129,14 +152,16 @@ public class MipsCodeCreator extends CodeCreator {
 
         mRuntimeCode.append("\n");
 
-        mRuntimeCode.append("_alloc_init_block:\n");
+        mRuntimeCode.append(Constants.FUNCTION_ALLOC_INIT_RAW_MEMORY);
+        mRuntimeCode.append(":\n");
         mRuntimeCode.append("\tli $v0, 9\n");
         mRuntimeCode.append("\tsyscall\n");
         mRuntimeCode.append("\tjr $ra\n");
 
         mRuntimeCode.append("\n");
 
-        mRuntimeCode.append("_convert_string_to_array:\n");
+        mRuntimeCode.append(Constants.FUNCTION_CONVERT_STRING_TO_ARRAY);
+        mRuntimeCode.append(":\n");
         mRuntimeCode.append("\tli $v0, 9\n");
         mRuntimeCode.append("\tsyscall\n");
         mRuntimeCode.append("\tmove $t0, $v0\n");
