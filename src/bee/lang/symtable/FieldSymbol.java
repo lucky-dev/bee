@@ -51,6 +51,10 @@ public class FieldSymbol implements Symbol {
         return mClassName + "_field_" + mIdentifier.getName();
     }
 
+    public String getClassName() {
+        return mClassName;
+    }
+
     @Override
     public Identifier getIdentifier() {
         return mIdentifier;

@@ -209,6 +209,11 @@ public class NewSymbolTableVisitor implements BaseVisitor {
 
     @Override
     public void visit(FieldDefinition statement) {
+        Expression initExpression = statement.getVariableDefinition().getInitExpression();
+        if (initExpression != null) {
+            initExpression.visit(this);
+        }
+
         VariableDefinition variableDefinition = statement.getVariableDefinition();
 
         Symbol symbol = mCurrentScope.getSymbolInCurrentScope(variableDefinition.getIdentifier().getName());
@@ -530,6 +535,10 @@ public class NewSymbolTableVisitor implements BaseVisitor {
 
     @Override
     public void visit(VariableDefinition statement) {
+        if (statement.getInitExpression() != null) {
+            statement.getInitExpression().visit(this);
+        }
+
         Symbol symbol = mCurrentScope.getSymbolInCurrentScope(statement.getIdentifier().getName());
 
         if (symbol == null) {

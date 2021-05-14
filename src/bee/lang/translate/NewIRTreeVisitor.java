@@ -48,9 +48,8 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
     private HashMap<String, EntityLayout> mMethodLayouts;
     private ClassSymbol mCurrentClassSymbol;
     private LinkedList<Fragment> mListFragments;
-    private EntityLayout mObjectLayout;
-    private EntityLayout mMethodLayout;
     private EntityLayout mClassLayout;
+    private EntityLayout mObjectLayout;
     private boolean isFieldDefinition;
     private boolean isStaticFieldDefinition;
     private String mCurrentFieldId;
@@ -232,7 +231,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
             if ((methodSymbol.isPrivate()) || (expression.getExpression() instanceof Super)) {
                 return new Ex(new CALL(new NAME(Label.newLabel(methodSymbol.getMethodId())), args));
             } else {
-                int virtualMethodId = mMethodLayout.get(((MethodSymbol) expression.getSymbol()).getMethodId());
+                int virtualMethodId = mMethodLayouts.get(((ClassSymbol) methodSymbol.getEnclosingScope()).getIdentifier().getName()).get(methodSymbol.getMethodId());
                 return new Ex(new CALL(new MEM(new BINOP(TypeBinOp.PLUS, new MEM(new MEM(new BINOP(TypeBinOp.PLUS, currentObject, new CONST(mCurrentFrame.getWordSize())))), new CONST(virtualMethodId * mCurrentFrame.getWordSize()))), args));
             }
         }
@@ -248,9 +247,8 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         mCurrentClassSymbol = (ClassSymbol) statement.getSymbol();
 
         String className = mCurrentClassSymbol.getIdentifier().getName();
-        mObjectLayout = mObjectLayouts.get(className);
-        mMethodLayout = mMethodLayouts.get(className);
         mClassLayout = mClassLayouts.get(className);
+        mObjectLayout = mObjectLayouts.get(className);
 
         mClassDescriptionLbl = Label.newLabel(String.format(Constants.CLASS_DESCRIPTION, className));
 
@@ -290,9 +288,8 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         mBodyMethodInitFields = null;
         mLastStatementBodyMethodInitFields = null;
 
-        mObjectLayout = null;
-        mMethodLayout = null;
         mClassLayout = null;
+        mObjectLayout = null;
 
         mCurrentClassSymbol = null;
 
@@ -308,6 +305,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         procedureArgs.add(false);
         while (statementsIterator.hasNext()) {
             procedureArgs.add(false);
+            statementsIterator.next();
         }
 
         mCurrentFrame = mFrame.newFrame(Label.newLabel(methodName), procedureArgs);
@@ -417,9 +415,9 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         FieldSymbol fieldSymbol = (FieldSymbol) expression.getSymbol();
 
         if (fieldSymbol.isStatic()) {
-            return new Ex(new MEM(new BINOP(TypeBinOp.PLUS, irExpression, new CONST((mClassLayout.get(fieldSymbol.getFieldId()) + 1) * mCurrentFrame.getWordSize()))));
+            return new Ex(new MEM(new BINOP(TypeBinOp.PLUS, irExpression, new CONST((mClassLayouts.get(fieldSymbol.getClassName()).get(fieldSymbol.getFieldId()) + 1) * mCurrentFrame.getWordSize()))));
         } else {
-            return new Ex(new MEM(new BINOP(TypeBinOp.PLUS, irExpression, new CONST((mObjectLayout.get(fieldSymbol.getFieldId()) + 2) * mCurrentFrame.getWordSize()))));
+            return new Ex(new MEM(new BINOP(TypeBinOp.PLUS, irExpression, new CONST((mObjectLayouts.get(fieldSymbol.getClassName()).get(fieldSymbol.getFieldId()) + 2) * mCurrentFrame.getWordSize()))));
         }
     }
 
@@ -469,8 +467,9 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         Symbol symbol = expression.getSymbol();
 
         if (symbol instanceof FieldSymbol) {
-            if (!((FieldSymbol) symbol).isStatic()) {
-                return new Ex(new MEM(new BINOP(TypeBinOp.PLUS, mFirstArgInFunction.exp(new TEMP(mCurrentFrame.getFP())), new CONST((mObjectLayout.get(mCurrentFieldId) + 2) * mCurrentFrame.getWordSize()))));
+            FieldSymbol fieldSymbol = (FieldSymbol) symbol;
+            if (!fieldSymbol.isStatic()) {
+                return new Ex(new MEM(new BINOP(TypeBinOp.PLUS, mFirstArgInFunction.exp(new TEMP(mCurrentFrame.getFP())), new CONST((mObjectLayouts.get(fieldSymbol.getClassName()).get(fieldSymbol.getFieldId()) + 2) * mCurrentFrame.getWordSize()))));
             }
         }
 
@@ -637,17 +636,19 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         Temp newObject = new Temp();
         Temp newSize = new Temp();
 
+        LinkedList<IRExpression> args = args(new TEMP(newObject), expression.getArgumentsList().getExpressionList());
+
         return new Ex(
                 new ESEQ(
                         new SEQ(
-                                new MOVE(new TEMP(newSize), new CONST((mObjectLayout.getCountItems() + 2) * mCurrentFrame.getWordSize())),
+                                new MOVE(new TEMP(newSize), new CONST((mObjectLayouts.get(((ClassSymbol) methodSymbol.getEnclosingScope()).getIdentifier().getName()).getCountItems() + 2) * mCurrentFrame.getWordSize())),
                                 new SEQ(new MOVE(
                                         new TEMP(newObject), mCurrentFrame.externalCall(Constants.FUNCTION_ALLOC_INIT_RAW_MEMORY, args(new TEMP(newSize)))),
                                         new SEQ(
                                                 new MOVE(new MEM(new TEMP(newObject)), new TEMP(newSize)),
                                                 new SEQ(
                                                         new MOVE(new MEM(new BINOP(TypeBinOp.PLUS, new TEMP(newObject), new CONST(mCurrentFrame.getWordSize()))), new NAME(Label.newLabel(String.format(Constants.CLASS_DESCRIPTION, expression.getType())))),
-                                                        new EXP(new CALL(new NAME(Label.newLabel(methodSymbol.getMethodId())), args(new TEMP(newObject))))
+                                                        new EXP(new CALL(new NAME(Label.newLabel(methodSymbol.getMethodId())), args))
                                                 )
                                         )
                                 )

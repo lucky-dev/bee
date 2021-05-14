@@ -17,7 +17,6 @@ public class TypeCheckingVisitor implements TypeVisitor {
     protected ClassSymbol mCurrentClassSymbol;
     protected MethodSymbol mCurrentMethodSymbol;
     protected BaseScope mGlobalScope;
-    private boolean isConst;
     private boolean isReturnStatement;
     private boolean isValidatingOtherConstructor;
     private boolean hasErrors;
@@ -26,7 +25,6 @@ public class TypeCheckingVisitor implements TypeVisitor {
         mBaseScope = baseScope;
         mCurrentScope = baseScope;
         mGlobalScope = baseScope;
-        isConst = false;
         isReturnStatement = false;
         isValidatingOtherConstructor = false;
         hasErrors = false;
@@ -121,18 +119,36 @@ public class TypeCheckingVisitor implements TypeVisitor {
             return Type.Error;
         }
 
-        if ((expression.getLeftExpression() instanceof FieldAccess) && (isConst)) {
-            isConst = false;
+        if (expression.getLeftExpression() instanceof FieldAccess) {
             FieldAccess fieldAccess = (FieldAccess) expression.getLeftExpression();
-            printErrorMessage(expression.getToken(), "Can not assign a value to constant field '" + fieldAccess.getIdentifier().getName() + "'.");
-            return Type.Error;
+            FieldSymbol fieldSymbol = ((FieldSymbol) fieldAccess.getSymbol());
+            if (fieldSymbol.isConst()) {
+                printErrorMessage(expression.getToken(), "Can not assign a value to the constant field '" + fieldAccess.getIdentifier().getName() + "'.");
+                return Type.Error;
+            }
         }
 
-        if ((expression.getLeftExpression() instanceof Identifier) && (isConst)) {
-            isConst = false;
+        if (expression.getLeftExpression() instanceof Identifier) {
             Identifier identifier = (Identifier) expression.getLeftExpression();
-            printErrorMessage(expression.getToken(), "Can not assign a value to constant variable '" + identifier.getName() + "'.");
-            return Type.Error;
+
+            if (identifier.getSymbol() instanceof ClassSymbol) {
+                printErrorMessage(expression.getToken(), "Left part of the operator '=' is not lvalue.");
+                return Type.Error;
+            } else if (identifier.getSymbol() instanceof LocalVariableSymbol) {
+                LocalVariableSymbol localVariableSymbol = ((LocalVariableSymbol) identifier.getSymbol());
+                if (localVariableSymbol.isConst()) {
+                    printErrorMessage(expression.getToken(), "Can not assign a value to the constant variable '" + identifier.getName() + "'.");
+                    return Type.Error;
+                }
+            } else if (identifier.getSymbol() instanceof FieldSymbol) {
+                FieldSymbol fieldSymbol = ((FieldSymbol) identifier.getSymbol());
+                if (fieldSymbol.isConst()) {
+                    printErrorMessage(expression.getToken(), "Can not assign a value to the constant field '" + identifier.getName() + "'.");
+                    return Type.Error;
+                }
+            } else {
+                return Type.Error;
+            }
         }
 
         if (expression.getRightExpression() instanceof Super) {
@@ -437,8 +453,6 @@ public class TypeCheckingVisitor implements TypeVisitor {
                             return Type.Error;
                         }
 
-                        isConst = fieldSymbol.isConst();
-
                         expression.setSymbol(fieldSymbol);
 
                         return symbol.getType();
@@ -537,8 +551,6 @@ public class TypeCheckingVisitor implements TypeVisitor {
                         break;
                     }
 
-                    isConst = fieldSymbol.isConst();
-
                     expression.setSymbol(fieldSymbol);
 
                     return symbol.getType();
@@ -549,8 +561,6 @@ public class TypeCheckingVisitor implements TypeVisitor {
             }
 
             if (symbol instanceof LocalVariableSymbol) {
-                isConst = ((LocalVariableSymbol) symbol).isConst();
-
                 expression.setSymbol(symbol);
 
                 return symbol.getType();
@@ -975,7 +985,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(UnaryMinus expression) {
-        BaseType type = expression.visit(this);
+        BaseType type = expression.getExpression().visit(this);
 
         if (type.isInt()) {
             return Type.Int;

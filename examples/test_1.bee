@@ -1,33 +1,43 @@
 class Main {
-	static var z : int = 3;
-	
+    // Every class must have at least one constructor.
 	constructor() : super() {
 	}
-	
+
+    // Entry point. An app must have only one entry point (the method 'main').
 	static main() {
-		var a : A = new B();
-		var x : int = a.f() + Main.z;
+	    // Create a new object
+    	var fib: Fib = new Fib();
+
+    	const result: int = fib.find(8);
 	}
 }
 
-class A {
-	static var z : int = 4;
-	
-	constructor() : super() {
+/*
+    Class to find Fibonacci numbers.
+*/
+class Fib {
+    /*
+        Every class must have at least one constructor.
+        All constructors are public by default. The modifier 'public' can be omitted.
+    */
+	public constructor() : super() {
 	}
-	
-	f() : int {
-		return 1;
-	}
-}
 
-class B : A {
-	static var z : int = 5;
-	
-	constructor() : super() {
+    // All static and non-static methods are public by default. The modifier 'public' can be omitted.
+	public find(var n: int): int {
+	    if (n > -1) {
+	        return helperFind(n - 1) + helperFind(n - 2);
+	    } else {
+	        return n;
+	    }
 	}
-	
-	f1() : int {
-		return 2;
+
+	private helperFind(var n: int): int {
+	    if (n < 2) {
+	        return n;
+	    }
+
+	    return helperFind(n - 1) + helperFind(n - 2);
 	}
+
 }

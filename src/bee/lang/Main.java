@@ -35,7 +35,7 @@ public class Main {
 
         LinkedList<String> pathOfSrcFiles = new LinkedList<>();
 
-        String mDestinationFile = "";
+        String destinationFile = "";
 
         if (args.length == 4) {
             for (int i = 0; i < args.length; i++) {
@@ -56,7 +56,7 @@ public class Main {
                 }
 
                 if ((args[i].equals("-d")) && (i + 1 < args.length)) {
-                    mDestinationFile = args[i + 1];
+                    destinationFile = args[i + 1];
                 }
             }
         }
@@ -137,7 +137,7 @@ public class Main {
 
             String code = codeCreator.create();
 
-            FileWriter fileWriter = new FileWriter(mDestinationFile);
+            FileWriter fileWriter = new FileWriter(destinationFile);
             fileWriter.write(code);
             fileWriter.close();
         } catch (BaseParserException |
