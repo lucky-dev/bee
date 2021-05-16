@@ -9,8 +9,8 @@ class Main {
     	var point1: Point = new Point(1, 2);
     	var point2: Point = new Point(3, 4);
 
-    	const sumOfPoints1: int = point1.getX() + point1.getY();
-    	const sumOfPoints2: int = point2.getX() + point2.getY();
+    	const sumOfPoints1: int = point1.getX() + point2.getX();
+    	const sumOfPoints2: int = point1.getY() + point2.getY();
     	const countOfPoints: int = Point.getCountOfPoints();
 	}
 }

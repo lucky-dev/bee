@@ -199,7 +199,7 @@ public class ValidatingMethodsVisitor implements BaseVisitor {
                         break;
                     } else {
                         if (((MethodType) currentMethod.getType()).getReturnType().isEqual(((MethodType) foundMethodSymbol.getType()).getReturnType())) {
-                            // Methods have the same formal parameters and return types. These methods are overridden (or hides static methods).
+                            // Methods have the same formal parameters and return types. These methods are overridden (or hide static methods).
                             // If the method in the subclass has weaker access modifier than the method in the base class. It is an error.
                             // E.g. Animal :> Cat. Animal#doIt (Animal::doIt) is public and Cat#doIt (Cat::doIt) is private or protected - error!
                             if (currentMethod.getAccessModifier().isWeakerThan(foundMethodSymbol.getAccessModifier())) {

@@ -164,7 +164,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
                                                                 ),
                                                                 new ESEQ(
                                                                         new LABEL(lblTrue2),
-                                                                        new MEM(new BINOP(TypeBinOp.PLUS, new MEM(arrayExpression.unEx()), new BINOP(TypeBinOp.MUL, new BINOP(TypeBinOp.PLUS, new TEMP(index), new CONST(1)), new CONST(mCurrentFrame.getWordSize()))))
+                                                                        new MEM(new BINOP(TypeBinOp.PLUS, arrayExpression.unEx(), new BINOP(TypeBinOp.MUL, new BINOP(TypeBinOp.PLUS, new TEMP(index), new CONST(1)), new CONST(mCurrentFrame.getWordSize()))))
                                                                 )
                                                         )
                                                 )
@@ -223,16 +223,29 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         if (methodSymbol.isStatic()) {
             return new Ex(new CALL(new NAME(Label.newLabel(methodSymbol.getMethodId())), args(expression.getArgumentsList().getExpressionList())));
         } else {
+            Temp currentObject = new Temp();
+            MOVE initCurrentObject = new MOVE(new TEMP(currentObject), expression.getExpression().visit(this).unEx());
             // The first argument is the current object aka 'this'.
-            IRExpression currentObject = expression.getExpression().visit(this).unEx();
-
-            LinkedList<IRExpression> args = args(currentObject, expression.getArgumentsList().getExpressionList());
+            LinkedList<IRExpression> args = args(new TEMP(currentObject), expression.getArgumentsList().getExpressionList());
 
             if ((methodSymbol.isPrivate()) || (expression.getExpression() instanceof Super)) {
-                return new Ex(new CALL(new NAME(Label.newLabel(methodSymbol.getMethodId())), args));
+                return new Ex(
+                        new ESEQ(
+                                initCurrentObject,
+                                new CALL(new NAME(Label.newLabel(methodSymbol.getMethodId())), args)
+                        )
+                );
             } else {
                 int virtualMethodId = mMethodLayouts.get(((ClassSymbol) methodSymbol.getEnclosingScope()).getIdentifier().getName()).get(methodSymbol.getMethodId());
-                return new Ex(new CALL(new MEM(new BINOP(TypeBinOp.PLUS, new MEM(new MEM(new BINOP(TypeBinOp.PLUS, currentObject, new CONST(mCurrentFrame.getWordSize())))), new CONST(virtualMethodId * mCurrentFrame.getWordSize()))), args));
+                return new Ex(
+                        new ESEQ(
+                                initCurrentObject,
+                                new CALL(
+                                        new MEM(new BINOP(TypeBinOp.PLUS, new MEM(new MEM(new BINOP(TypeBinOp.PLUS, new TEMP(currentObject), new CONST(mCurrentFrame.getWordSize())))), new CONST(virtualMethodId * mCurrentFrame.getWordSize()))),
+                                        args
+                                )
+                        )
+                );
             }
         }
     }
@@ -634,22 +647,20 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
         MethodSymbol methodSymbol = (MethodSymbol) expression.getSymbol();
 
         Temp newObject = new Temp();
-        Temp newSize = new Temp();
 
         LinkedList<IRExpression> args = args(new TEMP(newObject), expression.getArgumentsList().getExpressionList());
 
+        // Count of all non-static fields + pointer to a class descriptor.
+        int sizeOfObject = mObjectLayouts.get(((ClassSymbol) methodSymbol.getEnclosingScope()).getIdentifier().getName()).getCountItems() + 1;
+
         return new Ex(
                 new ESEQ(
-                        new SEQ(
-                                new MOVE(new TEMP(newSize), new CONST((mObjectLayouts.get(((ClassSymbol) methodSymbol.getEnclosingScope()).getIdentifier().getName()).getCountItems() + 2) * mCurrentFrame.getWordSize())),
-                                new SEQ(new MOVE(
-                                        new TEMP(newObject), mCurrentFrame.externalCall(Constants.FUNCTION_ALLOC_INIT_RAW_MEMORY, args(new TEMP(newSize)))),
+                        new SEQ(new MOVE(new TEMP(newObject), mCurrentFrame.externalCall(Constants.FUNCTION_ALLOC_INIT_RAW_MEMORY, args(new CONST((sizeOfObject + 1) * mCurrentFrame.getWordSize())))),
+                                new SEQ(
+                                        new MOVE(new MEM(new TEMP(newObject)), new CONST(sizeOfObject)),
                                         new SEQ(
-                                                new MOVE(new MEM(new TEMP(newObject)), new TEMP(newSize)),
-                                                new SEQ(
-                                                        new MOVE(new MEM(new BINOP(TypeBinOp.PLUS, new TEMP(newObject), new CONST(mCurrentFrame.getWordSize()))), new NAME(Label.newLabel(String.format(Constants.CLASS_DESCRIPTION, expression.getType())))),
-                                                        new EXP(new CALL(new NAME(Label.newLabel(methodSymbol.getMethodId())), args))
-                                                )
+                                                new MOVE(new MEM(new BINOP(TypeBinOp.PLUS, new TEMP(newObject), new CONST(mCurrentFrame.getWordSize()))), new NAME(Label.newLabel(String.format(Constants.CLASS_DESCRIPTION, expression.getType())))),
+                                                new EXP(new CALL(new NAME(Label.newLabel(methodSymbol.getMethodId())), args))
                                         )
                                 )
                         ),

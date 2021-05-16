@@ -8,6 +8,7 @@ class Main {
 	    // Create a new object
     	var fib: Fib = new Fib();
 
+        // Result is 21
     	const result: int = fib.find(8);
 	}
 }

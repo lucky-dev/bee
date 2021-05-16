@@ -80,6 +80,8 @@ public class NewSymbolTableVisitor implements BaseVisitor {
     public void visit(Block statement) {
         mCurrentScope = new LocalScope(mCurrentScope, mCurrentScope.getScopeName());
 
+        statement.setScope(mCurrentScope);
+
         statement.getStatements().visit(this);
 
         mCurrentScope = mCurrentScope.getEnclosingScope();
@@ -193,7 +195,16 @@ public class NewSymbolTableVisitor implements BaseVisitor {
     @Override
     public void visit(DoWhile statement) {
         statement.getExpression().visit(this);
-        statement.getStatement().visit(this);
+
+        Statement bodyStatement = statement.getStatement();
+
+        mCurrentScope = new LocalScope(mCurrentScope, mCurrentScope.getScopeName());
+
+        bodyStatement.setScope(mCurrentScope);
+
+        bodyStatement.visit(this);
+
+        mCurrentScope = mCurrentScope.getEnclosingScope();
     }
 
     @Override
@@ -249,10 +260,28 @@ public class NewSymbolTableVisitor implements BaseVisitor {
     @Override
     public void visit(If statement) {
         statement.getExpression().visit(this);
-        statement.getThenStatement().visit(this);
-        if (statement.getElseStatement() != null) {
-            statement.getElseStatement().visit(this);
+
+        Statement thenStatement = statement.getThenStatement();
+
+        mCurrentScope = new LocalScope(mCurrentScope, mCurrentScope.getScopeName());
+
+        thenStatement.setScope(mCurrentScope);
+
+        thenStatement.visit(this);
+
+        Statement elseStatement = statement.getElseStatement();
+
+        if (elseStatement != null) {
+            mCurrentScope = mCurrentScope.getEnclosingScope();
+
+            mCurrentScope = new LocalScope(mCurrentScope, mCurrentScope.getScopeName());
+
+            elseStatement.setScope(mCurrentScope);
+
+            elseStatement.visit(this);
         }
+
+        mCurrentScope = mCurrentScope.getEnclosingScope();
     }
 
     @Override
@@ -553,7 +582,16 @@ public class NewSymbolTableVisitor implements BaseVisitor {
     @Override
     public void visit(While statement) {
         statement.getExpression().visit(this);
-        statement.getStatement().visit(this);
+
+        Statement bodyStatement = statement.getStatement();
+
+        mCurrentScope = new LocalScope(mCurrentScope, mCurrentScope.getScopeName());
+
+        bodyStatement.setScope(mCurrentScope);
+
+        bodyStatement.visit(this);
+
+        mCurrentScope = mCurrentScope.getEnclosingScope();
     }
 
     private void printErrorMessage(Token token, String message) {

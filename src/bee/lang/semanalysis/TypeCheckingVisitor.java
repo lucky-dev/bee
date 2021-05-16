@@ -172,7 +172,11 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(Block statement) {
+        mCurrentScope = statement.getScope();
+
         statement.getStatements().visit(this);
+
+        mCurrentScope = mCurrentScope.getEnclosingScope();
 
         return Type.Nothing;
     }
@@ -366,7 +370,13 @@ public class TypeCheckingVisitor implements TypeVisitor {
             return Type.Error;
         }
 
-        statement.getStatement().visit(this);
+        Statement bodyStatement = statement.getStatement();
+
+        mCurrentScope = bodyStatement.getScope();
+
+        bodyStatement.visit(this);
+
+        mCurrentScope = mCurrentScope.getEnclosingScope();
 
         return Type.Nothing;
     }
@@ -586,11 +596,23 @@ public class TypeCheckingVisitor implements TypeVisitor {
             return Type.Error;
         }
 
-        statement.getThenStatement().visit(this);
+        Statement thenStatement = statement.getThenStatement();
+
+        mCurrentScope = statement.getScope();
+
+        thenStatement.visit(this);
 
         if (statement.getElseStatement() != null) {
-            statement.getElseStatement().visit(this);
+            mCurrentScope = mCurrentScope.getEnclosingScope();
+
+            Statement elseStatement = statement.getElseStatement();
+
+            mCurrentScope = elseStatement.getScope();
+
+            elseStatement.visit(this);
         }
+
+        mCurrentScope = mCurrentScope.getEnclosingScope();
 
         return Type.Nothing;
     }
@@ -998,19 +1020,17 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
     @Override
     public BaseType visit(VariableDefinition statement) {
-        BaseType resultType = Type.Error;
-
         if (statement.getInitExpression() != null) {
             BaseType typeVariable = statement.getType();
             BaseType typeInitExpression = statement.getInitExpression().visit(this);
 
             if (((typeVariable.isInt()) || (typeVariable.isChar()) || (typeVariable.isBool()) || (typeVariable.isArray())) &&
                     (typeVariable.isEqual(typeInitExpression))) {
-                resultType = Type.Nothing;
+                return Type.Nothing;
             }
 
             if (((typeVariable.isClass()) || (typeVariable.isArray())) && (typeInitExpression.isNil())) {
-                resultType = Type.Nothing;
+                return Type.Nothing;
             }
 
             if ((typeVariable.isClass()) && (typeInitExpression.isClass())) {
@@ -1018,22 +1038,22 @@ public class TypeCheckingVisitor implements TypeVisitor {
                 ClassType classTypeInitExpression = (ClassType) typeInitExpression;
 
                 if (classTypeInitExpression.isSubclassOf(classTypeVariable)) {
-                    resultType = Type.Nothing;
+                    return Type.Nothing;
                 }
             }
 
             // Check rvalue to initialize a variable.
             if (statement.getInitExpression() instanceof Super) {
                 printErrorMessage(statement.getToken(), "Right part of the operator '=' is not rvalue.");
-                return resultType;
+                return Type.Error;
             }
 
-            if (resultType.isError()) {
-                printErrorMessage(statement.getToken(), "Can not assign value of type '" + typeInitExpression + "' to variable of type '" + typeVariable + "'.");
-            }
+            printErrorMessage(statement.getToken(), "Can not assign value of type '" + typeInitExpression + "' to variable of type '" + typeVariable + "'.");
+
+            return Type.Error;
         }
 
-        return resultType;
+        return Type.Nothing;
     }
 
     @Override
@@ -1044,7 +1064,13 @@ public class TypeCheckingVisitor implements TypeVisitor {
             return Type.Error;
         }
 
-        statement.getStatement().visit(this);
+        Statement bodyStatement = statement.getStatement();
+
+        mCurrentScope = bodyStatement.getScope();
+
+        bodyStatement.visit(this);
+
+        mCurrentScope = mCurrentScope.getEnclosingScope();
 
         return Type.Nothing;
     }

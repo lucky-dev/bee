@@ -175,11 +175,3 @@ public class MipsCodeCreator extends CodeCreator {
     }
     
 }
-
-
-
-
-
-
-
-

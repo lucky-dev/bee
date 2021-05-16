@@ -1,0 +1,33 @@
+class Main {
+    // Every class must have at least one constructor. All constructors are public by default.
+	constructor() : super() {
+	}
+
+    // Entry point. An app must have only one entry point (the method 'main').
+	static main() {
+	    // Create a new array
+    	var array: int[] = new int[10];
+
+    	// Fill the new array
+    	var i: int = 0;
+    	while (i < 10) {
+    	    array[i] = i + 1;
+    	    i = i + 1;
+    	}
+
+        // Result is 55
+        const result: int = Main.sum(array);
+	}
+
+    // Sum all items in the array
+	static sum(var array: int[]): int {
+	    var sum: int = 0;
+	    var i: int = 0;
+        while (i < 10) {
+            sum = sum + array[i];
+            i = i + 1;
+        }
+
+        return sum;
+	}
+}

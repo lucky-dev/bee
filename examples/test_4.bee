@@ -1,0 +1,90 @@
+class Main {
+    // Every class must have at least one constructor. All constructors are public by default.
+	constructor() : super() {
+	}
+
+    // Entry point. An app must have only one entry point (the method 'main').
+	static main() {
+	    // Create a new array
+    	var array: Vehicle[] = new Vehicle[3];
+    	array[0] = new Car(1);
+    	array[1] = new Bicycle(2);
+    	array[2] = new Motorcycle(3);
+
+    	// Fill the new array
+    	var i: int = 0;
+    	while (i < 3) {
+    	    const vehicle: Vehicle = array[i];
+    	    const id: int = vehicle.getId();
+    	    i = i + 1;
+    	}
+	}
+}
+
+class Vehicle {
+
+    // All static and non-static fields are private by default.
+    var id: int;
+
+    // Every class must have at least one constructor. All constructors are public by default.
+    constructor() : super() {
+        id = 0;
+    }
+
+    // All static and non-static methods are public by default.
+    getId(): int {
+        return id;
+    }
+
+}
+
+class Car : Vehicle {
+
+    // All static and non-static fields are private by default.
+    var id: int;
+
+    // Every class must have at least one constructor. All constructors are public by default.
+    constructor(const id: int) : super() {
+        this.id = id;
+    }
+
+    // All static and non-static methods are public by default.
+    getId(): int {
+        return id;
+    }
+
+}
+
+class Bicycle : Vehicle {
+
+    // All static and non-static fields are private by default.
+    var id: int;
+
+    // Every class must have at least one constructor. All constructors are public by default.
+    constructor(const id: int) : super() {
+        this.id = id;
+    }
+
+    // All static and non-static methods are public by default.
+    getId(): int {
+        return id;
+    }
+
+}
+
+class Motorcycle : Vehicle {
+
+    // All static and non-static fields are private by default.
+    var id: int;
+
+    // Every class must have at least one constructor. All constructors are public by default.
+    constructor(const id: int) : super() {
+        this.id = id;
+    }
+
+    // All static and non-static methods are public by default.
+    getId(): int {
+        return id;
+    }
+
+}
