@@ -82,6 +82,29 @@ public class ValidatingMethodsVisitor implements BaseVisitor {
     }
 
     @Override
+    public void visit(ExternalFunctionDeclaration statement) {
+        Symbol currentExternalFunction = statement.getSymbol();
+
+        Symbol externalFunction = mCurrentScope.getSymbolInCurrentScope(statement.getIdentifier().getName());
+
+        // Try to find an external function with the same signature in the current class. Ignore the current external function.
+        while (externalFunction != null) {
+            if (externalFunction != currentExternalFunction) {
+                if (currentExternalFunction.getType().isEqual(externalFunction.getType())) {
+                    printErrorMessage(statement.getIdentifier().getToken(), "Class '" + mCurrentScope.getScopeName() + "' has already had an external function with the same arguments.");
+                    break;
+                }
+            }
+
+            externalFunction = externalFunction.getNextSymbol();
+        }
+    }
+
+    @Override
+    public void visit(ExternalCall expression) {
+    }
+
+    @Override
     public void visit(CharLiteral expression) {
     }
 
@@ -93,6 +116,7 @@ public class ValidatingMethodsVisitor implements BaseVisitor {
 
         statement.getConstructorDefinitions().visit(this);
         statement.getMethodDefinitions().visit(this);
+        statement.getExternalFunctionDeclarations().visit(this);
 
         mCurrentScope = classSymbol.getScope();
     }
@@ -107,7 +131,7 @@ public class ValidatingMethodsVisitor implements BaseVisitor {
         while (constructor != null) {
             if (constructor != currentConstructor) {
                 if (currentConstructor.getType().isEqual(constructor.getType())) {
-                    printErrorMessage(statement.getToken(), "Class '" + mCurrentScope.getScopeName() + "' has already had a constructor with the same arguments");
+                    printErrorMessage(statement.getToken(), "Class '" + mCurrentScope.getScopeName() + "' has already had a constructor with the same arguments.");
                     break;
                 }
             }

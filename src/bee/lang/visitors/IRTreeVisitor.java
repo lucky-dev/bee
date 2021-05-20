@@ -15,6 +15,8 @@ public interface IRTreeVisitor {
     WrapperIRExpression visit(Break statement);
     WrapperIRExpression visit(Continue statement);
     WrapperIRExpression visit(Call expression);
+    WrapperIRExpression visit(ExternalFunctionDeclaration statement);
+    WrapperIRExpression visit(ExternalCall expression);
     WrapperIRExpression visit(CharLiteral expression);
     WrapperIRExpression visit(ClassDefinition statement);
     WrapperIRExpression visit(ConstructorDefinition statement);

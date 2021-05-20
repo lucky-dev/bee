@@ -2,6 +2,7 @@ package bee.lang.visitors;
 
 import bee.lang.ast.*;
 import bee.lang.ast.types.BaseType;
+import bee.lang.translate.ir.WrapperIRExpression;
 
 public interface TypeVisitor {
 
@@ -15,6 +16,8 @@ public interface TypeVisitor {
     BaseType visit(Break statement);
     BaseType visit(Continue statement);
     BaseType visit(Call expression);
+    BaseType visit(ExternalFunctionDeclaration statement);
+    BaseType visit(ExternalCall expression);
     BaseType visit(CharLiteral expression);
     BaseType visit(ClassDefinition statement);
     BaseType visit(ConstructorDefinition statement);

@@ -1,4 +1,7 @@
 class Main {
+    // External functions are visible only for the current class. These functions can be called from static and non-static methods.
+    external print_int(var n: int);
+
     // Every class must have at least one constructor.
 	constructor() : super() {
 	}
@@ -9,7 +12,7 @@ class Main {
     	var fib: Fib = new Fib();
 
         // Result is 21
-    	const result: int = fib.find(8);
+    	@print_int(fib.find(8));
 	}
 }
 

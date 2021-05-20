@@ -15,8 +15,9 @@ public class MethodSymbol extends BaseScope implements Symbol {
     private int mId;
     private String mClassName;
     private String mMethodName;
+    private boolean isExternal;
 
-    public MethodSymbol(AccessModifier accessModifier, boolean isStatic, Identifier identifier, BaseScope enclosingScope, String className, String methodName) {
+    public MethodSymbol(AccessModifier accessModifier, boolean isStatic, boolean isExternal, Identifier identifier, BaseScope enclosingScope, String className, String methodName) {
         super(enclosingScope, enclosingScope.getScopeName() + "." + (identifier == null ? "constructor" : identifier.getName()));
         mAccessModifier = accessModifier;
         this.isStatic = isStatic;
@@ -24,6 +25,7 @@ public class MethodSymbol extends BaseScope implements Symbol {
         mId = 0;
         mClassName = className;
         mMethodName = methodName;
+        this.isExternal = isExternal;
     }
 
     public AccessModifier getAccessModifier() {
@@ -48,6 +50,10 @@ public class MethodSymbol extends BaseScope implements Symbol {
 
     public String getMethodId() {
         return mClassName + "_method_" + mMethodName + "_" + mId;
+    }
+
+    public boolean isExternal() {
+        return isExternal;
     }
 
     @Override

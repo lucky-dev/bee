@@ -1,4 +1,7 @@
 class Main {
+    // External functions are visible only for the current class. These functions can be called from static and non-static methods.
+    external print_int(var n: int);
+
     // Every class must have at least one constructor. All constructors are public by default.
 	constructor() : super() {
 	}
@@ -16,7 +19,7 @@ class Main {
     	}
 
         // Result is 55
-        const result: int = Main.sum(array);
+        @print_int(Main.sum(array));
 	}
 
     // Sum all items in the array

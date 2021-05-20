@@ -19,6 +19,18 @@ public class Constants {
     // Function to allocate and initialize block of memory with chars.
     public static final String FUNCTION_CONVERT_STRING_TO_ARRAY = "_convert_string_to_array";
 
+    // Function to print integer.
+    public static final String FUNCTION_PRINT_INTEGER = "print_int";
+
+    // Function to print char.
+    public static final String FUNCTION_PRINT_CHAR = "print_char";
+
+    // Function to read integer.
+    public static final String FUNCTION_READ_INTEGER = "read_int";
+
+    // Function to read char.
+    public static final String FUNCTION_READ_CHAR = "read_char";
+
     public static final String CLASS_DESCRIPTION = "_%s_class_description_";
 
     public static final String VTABLE = "%s_vtable";

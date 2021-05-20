@@ -87,6 +87,14 @@ public class NewLayoutsVisitor implements BaseVisitor {
     }
 
     @Override
+    public void visit(ExternalFunctionDeclaration statement) {
+    }
+
+    @Override
+    public void visit(ExternalCall expression) {
+    }
+
+    @Override
     public void visit(CharLiteral expression) {
     }
 

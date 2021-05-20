@@ -1,4 +1,8 @@
 class Main {
+    // External functions are visible only for the current class. These functions can be called from static and non-static methods.
+    external print_int(var n: int);
+    external print_char(var c: char);
+
     // Every class must have at least one constructor. All constructors are public by default.
 	constructor() : super() {
 	}
@@ -15,7 +19,9 @@ class Main {
     	var i: int = 0;
     	while (i < 3) {
     	    const vehicle: Vehicle = array[i];
-    	    const id: int = vehicle.getId();
+    	    // Call the external function 'print_int'
+    	    @print_int(vehicle.getId());
+    	    @print_char('\t');
     	    i = i + 1;
     	}
 	}

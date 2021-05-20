@@ -2,9 +2,10 @@ package bee.lang.ast;
 
 public enum AccessModifier {
 
-    PRIVATE(0),
-    PROTECTED(1),
-    PUBLIC(2);
+    NONE(0),
+    PRIVATE(1),
+    PROTECTED(2),
+    PUBLIC(3);
 
     private int mLevelOfAccess;
 

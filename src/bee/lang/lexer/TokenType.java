@@ -30,6 +30,8 @@ public enum TokenType {
     VAR,
     SUPER,
     THIS,
-    CONSTRUCTOR
+    CONSTRUCTOR,
+    EXTERNAL,
+    AT
 
 }

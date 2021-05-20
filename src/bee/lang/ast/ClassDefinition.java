@@ -13,15 +13,17 @@ public class ClassDefinition extends Statement {
     private Identifier mBaseClassIdentifier;
     private Statements mConstructorDefinitions;
     private Statements mMethodDefinitions;
+    private Statements mExternalFunctionDeclarations;
     private Statements mFieldDefinitions;
     private Symbol mSymbol;
 
-    public ClassDefinition(Identifier baseClassIdentifier, Identifier classIdentifier, Statements constructorDefinitions, Statements methodDefinitions, Statements fieldDefinitions) {
+    public ClassDefinition(Identifier baseClassIdentifier, Identifier classIdentifier, Statements constructorDefinitions, Statements methodDefinitions, Statements fieldDefinitions, Statements externalFunctionDeclarations) {
         mBaseClassIdentifier = baseClassIdentifier;
         mClassIdentifier = classIdentifier;
         mConstructorDefinitions = constructorDefinitions;
         mMethodDefinitions = methodDefinitions;
         mFieldDefinitions = fieldDefinitions;
+        mExternalFunctionDeclarations = externalFunctionDeclarations;
     }
 
     public Identifier getClassIdentifier() {
@@ -42,6 +44,10 @@ public class ClassDefinition extends Statement {
 
     public Statements getFieldDefinitions() {
         return mFieldDefinitions;
+    }
+
+    public Statements getExternalFunctionDeclarations() {
+        return mExternalFunctionDeclarations;
     }
 
     public Symbol getSymbol() {

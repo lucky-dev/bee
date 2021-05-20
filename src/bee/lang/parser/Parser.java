@@ -10,7 +10,7 @@ EBNF grammar
 Program -> { ClassDefinitionStatement }
 
 ClassDefinitionStatement -> 'class' IDENTIFIER [ ':' IDENTIFIER ] '{'
-    { ( ( AccessModifiers ConstructorDefinitionStatement ) | ( ( ( [AccessModifiers] [ 'static' ] ) | ( [ 'static' ] [AccessModifiers] ) ) ( FieldDefinitionStatement | MethodDefinitionStatement ) ) ) }
+    { ( ( AccessModifiers ConstructorDefinitionStatement ) | ( ( ( [AccessModifiers] [ 'static' ] ) | ( [ 'static' ] [AccessModifiers] ) ) ( FieldDefinitionStatement | MethodDefinitionStatement ) ) | ExternalFunctionDefinitionStatement ) }
 '}'
 
 FieldDefinitionStatement -> VariableDefinitionStatement
@@ -22,6 +22,8 @@ VariableDefinitionStatement -> BaseVariableDeclaration [ '=' ConditionalExpressi
 ConstructorDefinitionStatement -> 'constructor' '(' [ FormalArgumentsList ] ')' [ ':' [ 'super' ] '(' [ ArgumentsList ] ')' ] '{' Statements '}'
 
 MethodDefinitionStatement -> IDENTIFIER '(' [ FormalArgumentsList ] ')' [ ':' ExtendedType ] '{' Statements '}'
+
+ExternalFunctionDefinitionStatement -> 'external' IDENTIFIER '(' [ FormalArgumentsList ] ')' [ ':' ExtendedType ] ';'
 
 ArgumentsList -> ConditionalExpression { ',' ConditionalExpression }
 
@@ -68,7 +70,7 @@ UnaryExpression -> ( '-' | '!' ) UnaryExpression | PostfixExpression
 PostfixExpression -> PrimaryExpression { '[' ConditionalExpression ']' | '.' IDENTIFIER [ '(' [ ArgumentsList ] ')' ] }
 
 PrimaryExpression -> 'this' | 'super' | 'true' | 'false' | 'nil' | IDENTIFIER [ '(' [ ArgumentsList ] ')' ] | INT_LITERAL | CHAR_LITERAL | STRING_LITERAL | '(' AssignmentExpression ')'
-                    | 'new' ( Type '[' ConditionalExpression ']' { '[' ConditionalExpression ']' } | IDENTIFIER '(' [ ArgumentsList ] ')' )
+                    | 'new' ( Type '[' ConditionalExpression ']' { '[' ConditionalExpression ']' } | IDENTIFIER '(' [ ArgumentsList ] ')' ) | '@' IDENTIFIER  '(' [ ArgumentsList ] ')'
 
 AccessModifiers -> 'public' | 'protected' | 'private'
 
@@ -206,47 +208,52 @@ public class Parser {
         Statements constructorDefinitions = new Statements();
         Statements methodDefinitions = new Statements();
         Statements fieldDefinitions = new Statements();
+        Statements externalFunctionDeclarations = new Statements();
 
         while (!isCurrentToken(TokenType.R_BRACE)) {
-            AccessModifier accessModifier = findAccessModifier();
-
-            if (isCurrentToken(TokenType.CONSTRUCTOR)) {
-                if (accessModifier == null) {
-                    accessModifier = AccessModifier.PUBLIC;
-                }
-
-                constructorDefinitions.addStatement(constructorDefinitionStatement(accessModifier));
+            if (isCurrentToken(TokenType.EXTERNAL)) {
+                externalFunctionDeclarations.addStatement(externalFunctionDeclarationStatement());
             } else {
-                boolean isStatic = false;
+                AccessModifier accessModifier = findAccessModifier();
 
-                if (isCurrentToken(TokenType.STATIC)) {
-                    match(TokenType.STATIC);
-                    isStatic = true;
-
-                    if (accessModifier == null) {
-                        accessModifier = findAccessModifier();
-                    }
-                }
-
-                if (isCurrentToken(TokenType.VAR, TokenType.CONST)) {
-                    if (accessModifier == null) {
-                        accessModifier = AccessModifier.PRIVATE;
-                    }
-
-                    fieldDefinitions.addStatement(fieldDefinitionStatement(accessModifier, isStatic));
-                } else {
+                if (isCurrentToken(TokenType.CONSTRUCTOR)) {
                     if (accessModifier == null) {
                         accessModifier = AccessModifier.PUBLIC;
                     }
 
-                    methodDefinitions.addStatement(methodDefinitionStatement(accessModifier, isStatic));
+                    constructorDefinitions.addStatement(constructorDefinitionStatement(accessModifier));
+                } else {
+                    boolean isStatic = false;
+
+                    if (isCurrentToken(TokenType.STATIC)) {
+                        match(TokenType.STATIC);
+                        isStatic = true;
+
+                        if (accessModifier == null) {
+                            accessModifier = findAccessModifier();
+                        }
+                    }
+
+                    if (isCurrentToken(TokenType.VAR, TokenType.CONST)) {
+                        if (accessModifier == null) {
+                            accessModifier = AccessModifier.PRIVATE;
+                        }
+
+                        fieldDefinitions.addStatement(fieldDefinitionStatement(accessModifier, isStatic));
+                    } else {
+                        if (accessModifier == null) {
+                            accessModifier = AccessModifier.PUBLIC;
+                        }
+
+                        methodDefinitions.addStatement(methodDefinitionStatement(accessModifier, isStatic));
+                    }
                 }
             }
         }
 
         match(TokenType.R_BRACE);
 
-        return new ClassDefinition(baseClassIdentifier, classIdentifier, constructorDefinitions, methodDefinitions, fieldDefinitions);
+        return new ClassDefinition(baseClassIdentifier, classIdentifier, constructorDefinitions, methodDefinitions, fieldDefinitions, externalFunctionDeclarations);
     }
 
     private Statement constructorDefinitionStatement(AccessModifier accessModifier) throws BaseParserException {
@@ -344,6 +351,36 @@ public class Parser {
         match(TokenType.R_BRACE);
 
         return new MethodDefinition(accessModifier, isStatic, identifier, formalArgumentsList, type, statements);
+    }
+
+    private Statement externalFunctionDeclarationStatement() throws BaseParserException {
+        match(TokenType.EXTERNAL);
+
+        match(TokenType.IDENTIFIER);
+
+        Identifier identifier = new Identifier(getPreviousToken());
+
+        Statements formalArgumentsList = new Statements();
+
+        match(TokenType.L_PAREN);
+
+        if (!isCurrentToken(TokenType.R_PAREN)) {
+            formalArgumentsList = formalArgumentsList();
+        }
+
+        match(TokenType.R_PAREN);
+
+        BaseType type;
+        if (isCurrentToken(TokenType.COLON)) {
+            match(TokenType.COLON);
+            type = extendedType();
+        } else {
+            type = Type.Void;
+        }
+
+        match(TokenType.SEMICOLON);
+
+        return new ExternalFunctionDeclaration(identifier, formalArgumentsList, type);
     }
 
     private VariableDefinition variableDefinitionStatement() throws BaseParserException {
@@ -753,6 +790,23 @@ public class Parser {
             } else {
                 return identifier;
             }
+        } else if (isCurrentToken(TokenType.AT)) {
+            match(TokenType.AT);
+
+            Identifier identifier = new Identifier(mToken);
+            match(TokenType.IDENTIFIER);
+
+            match(TokenType.L_PAREN);
+
+            ArgumentsList argumentsList = new ArgumentsList();
+
+            if (!isCurrentToken(TokenType.R_PAREN)) {
+                argumentsList = argumentsList();
+            }
+
+            match(TokenType.R_PAREN);
+
+            return new ExternalCall(identifier, argumentsList);
         } else if (isCurrentToken(TokenType.INT_LITERAL)) {
             IntLiteral intLiteral = new IntLiteral(mToken);
             match(TokenType.INT_LITERAL);

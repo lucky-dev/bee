@@ -303,6 +303,88 @@ public class TypeCheckingVisitor implements TypeVisitor {
     }
 
     @Override
+    public BaseType visit(ExternalFunctionDeclaration statement) {
+        Iterator<Statement> iterator = statement.getFormalArgumentsList().getStatementsList().iterator();
+
+        while (iterator.hasNext()) {
+            BaseType baseType = ((VariableDefinition) iterator.next()).getType();
+            if ((!baseType.isInt()) && (!baseType.isBool()) && (!baseType.isChar())) {
+                printErrorMessage(statement.getIdentifier().getToken(), "The external method '" + statement.getIdentifier().getName() + "' must have formal parameters of type 'int', 'bool' or 'char'.");
+                return Type.Error;
+            }
+        }
+
+        BaseType returnType = statement.getReturnType();
+
+        if ((!returnType.isInt()) && (!returnType.isBool()) && (!returnType.isChar() && (!returnType.isVoid()))) {
+            printErrorMessage(statement.getIdentifier().getToken(), "The external method '" + statement.getIdentifier().getName() + "' must return value of type 'int', 'bool' or 'char'.");
+            return Type.Error;
+        }
+
+        return Type.Nothing;
+    }
+
+    @Override
+    public BaseType visit(ExternalCall expression) {
+        MethodType expectedMethodType = new MethodType();
+
+        Iterator<Expression> iterator = expression.getArgumentsList().getExpressionList().iterator();
+
+        while (iterator.hasNext()) {
+            expectedMethodType.addFormalArgumentType(iterator.next().visit(this));
+        }
+
+        LinkedList<MethodSymbol> foundMethodSymbols = new LinkedList<>();
+
+        Symbol symbol = mCurrentClassSymbol.getSymbolInCurrentScope(expression.getIdentifier().getName());
+
+        if (symbol instanceof MethodSymbol) {
+            while (symbol != null) {
+                MethodType foundMethodType = (MethodType) symbol.getType();
+
+                if ((expectedMethodType.getFormalArgumentTypes().size() == foundMethodType.getFormalArgumentTypes().size())) {
+                    Iterator<BaseType> expectedTypesIterator = expectedMethodType.getFormalArgumentTypes().iterator();
+                    Iterator<BaseType> foundTypesIterator = foundMethodType.getFormalArgumentTypes().iterator();
+
+                    boolean isSuitableMethod = true;
+
+                    // Check every actual and formal parameter. Find an appropriate external function.
+                    while ((expectedTypesIterator.hasNext()) && (foundTypesIterator.hasNext())) {
+                        BaseType expectedType = expectedTypesIterator.next();
+                        BaseType foundType = foundTypesIterator.next();
+
+                        if (((expectedType.isInt()) || (expectedType.isChar()) || (expectedType.isBool())) && (!foundType.isEqual(expectedType))) {
+                            isSuitableMethod = false;
+                            break;
+                        }
+                    }
+
+                    if (isSuitableMethod) {
+                        foundMethodSymbols.add((MethodSymbol) symbol);
+                    }
+                }
+
+                symbol = symbol.getNextSymbol();
+            }
+        }
+
+        MethodSymbol suitableMethod = findAppropriateMethod(foundMethodSymbols);
+
+        if ((suitableMethod == null) && (!foundMethodSymbols.isEmpty())) {
+            printErrorMessage(expression.getIdentifier().getToken(), "This call of the external function is ambiguous.");
+            return Type.Error;
+        }
+
+        if (suitableMethod != null) {
+            expression.setSymbol(suitableMethod);
+            return ((MethodType) suitableMethod.getType()).getReturnType();
+        } else {
+            printErrorMessage(expression.getIdentifier().getToken(), "Can not find an external function for such arguments.");
+            return Type.Error;
+        }
+    }
+
+    @Override
     public BaseType visit(CharLiteral expression) {
         return Type.Char;
     }
@@ -316,6 +398,7 @@ public class TypeCheckingVisitor implements TypeVisitor {
         statement.getConstructorDefinitions().visit(this);
         statement.getMethodDefinitions().visit(this);
         statement.getFieldDefinitions().visit(this);
+        statement.getExternalFunctionDeclarations().visit(this);
 
         mCurrentScope = mCurrentClassSymbol.getScope();
 

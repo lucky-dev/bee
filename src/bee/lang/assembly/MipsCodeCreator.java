@@ -172,6 +172,38 @@ public class MipsCodeCreator extends CodeCreator {
         mRuntimeCode.append("\t\taddi $t0, $t0, 4\n");
         mRuntimeCode.append("\t\tbnez $t1, _convert_string_to_array_loop\n");
         mRuntimeCode.append("\tjr $ra\n");
+
+        mRuntimeCode.append("\n");
+
+        mRuntimeCode.append(Constants.FUNCTION_PRINT_INTEGER);
+        mRuntimeCode.append(":\n");
+        mRuntimeCode.append("\tli $v0, 1\n");
+        mRuntimeCode.append("\tsyscall\n");
+        mRuntimeCode.append("\tjr $ra\n");
+
+        mRuntimeCode.append("\n");
+
+        mRuntimeCode.append(Constants.FUNCTION_PRINT_CHAR);
+        mRuntimeCode.append(":\n");
+        mRuntimeCode.append("\tli $v0, 11\n");
+        mRuntimeCode.append("\tsyscall\n");
+        mRuntimeCode.append("\tjr $ra\n");
+
+        mRuntimeCode.append("\n");
+
+        mRuntimeCode.append(Constants.FUNCTION_READ_INTEGER);
+        mRuntimeCode.append(":\n");
+        mRuntimeCode.append("\tli $v0, 5\n");
+        mRuntimeCode.append("\tsyscall\n");
+        mRuntimeCode.append("\tjr $ra\n");
+
+        mRuntimeCode.append("\n");
+
+        mRuntimeCode.append(Constants.FUNCTION_READ_CHAR);
+        mRuntimeCode.append(":\n");
+        mRuntimeCode.append("\tli $v0, 12\n");
+        mRuntimeCode.append("\tsyscall\n");
+        mRuntimeCode.append("\tjr $ra\n");
     }
     
 }

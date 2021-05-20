@@ -111,6 +111,39 @@ public class NewSymbolTableVisitor implements BaseVisitor {
     }
 
     @Override
+    public void visit(ExternalFunctionDeclaration statement) {
+        Symbol symbol = mCurrentScope.getSymbolInCurrentScope(statement.getIdentifier().getName());
+
+        if ((symbol != null) && (!(symbol instanceof MethodSymbol))) {
+            printErrorMessage(statement.getIdentifier().getToken(), "'" + mCurrentScope + "' has already had the identifier '" + statement.getIdentifier().getName() + "'.");
+            return;
+        }
+
+        MethodSymbol newMethodSymbol = new MethodSymbol(AccessModifier.NONE, false, true, statement.getIdentifier(), mCurrentScope, mCurrentClassSymbol.getIdentifier().getName(), statement.getIdentifier().getName());
+
+        MethodType methodType = new MethodType();
+
+        Iterator<Statement> iterator = statement.getFormalArgumentsList().getStatementsList().iterator();
+
+        while (iterator.hasNext()) {
+            methodType.addFormalArgumentType(((VariableDefinition) iterator.next()).getType());
+        }
+
+        methodType.addReturnType(statement.getReturnType());
+
+        newMethodSymbol.setType(methodType);
+
+        newMethodSymbol.setNextSymbol(mCurrentScope.getSymbolInCurrentScope(statement.getIdentifier().getName()));
+        mCurrentScope.put(newMethodSymbol);
+
+        statement.setSymbol(newMethodSymbol);
+    }
+
+    @Override
+    public void visit(ExternalCall expression) {
+    }
+
+    @Override
     public void visit(CharLiteral expression) {
     }
 
@@ -138,6 +171,7 @@ public class NewSymbolTableVisitor implements BaseVisitor {
             statement.getFieldDefinitions().visit(this);
             statement.getConstructorDefinitions().visit(this);
             statement.getMethodDefinitions().visit(this);
+            statement.getExternalFunctionDeclarations().visit(this);
 
             mCurrentClassSymbol = null;
 
@@ -149,7 +183,7 @@ public class NewSymbolTableVisitor implements BaseVisitor {
 
     @Override
     public void visit(ConstructorDefinition statement) {
-        MethodSymbol newMethodSymbol = new MethodSymbol(statement.getAccessModifier(), false, null, mCurrentScope, mCurrentClassSymbol.getIdentifier().getName(), "constructor");
+        MethodSymbol newMethodSymbol = new MethodSymbol(statement.getAccessModifier(), false, false, null, mCurrentScope, mCurrentClassSymbol.getIdentifier().getName(), "constructor");
 
         MethodType methodType = new MethodType();
 
@@ -309,7 +343,7 @@ public class NewSymbolTableVisitor implements BaseVisitor {
             return;
         }
 
-        MethodSymbol newMethodSymbol = new MethodSymbol(statement.getAccessModifier(), statement.isStatic(), statement.getIdentifier(), mCurrentScope, mCurrentClassSymbol.getIdentifier().getName(), statement.getIdentifier().getName());
+        MethodSymbol newMethodSymbol = new MethodSymbol(statement.getAccessModifier(), statement.isStatic(), false, statement.getIdentifier(), mCurrentScope, mCurrentClassSymbol.getIdentifier().getName(), statement.getIdentifier().getName());
 
         MethodType methodType = new MethodType();
 

@@ -1,4 +1,8 @@
 class Main {
+    // External functions are visible only for the current class. These functions can be called from static and non-static methods.
+    external print_int(var n: int);
+    external print_char(var c: char);
+
     // Every class must have at least one constructor. All constructors are public by default.
 	constructor() : super() {
 	}
@@ -9,9 +13,11 @@ class Main {
     	var point1: Point = new Point(1, 2);
     	var point2: Point = new Point(3, 4);
 
-    	const sumOfPoints1: int = point1.getX() + point2.getX();
-    	const sumOfPoints2: int = point1.getY() + point2.getY();
-    	const countOfPoints: int = Point.getCountOfPoints();
+    	@print_int(point1.getX() + point2.getX());
+    	@print_char('\n');
+    	@print_int(point1.getY() + point2.getY());
+    	@print_char('\n');
+    	@print_int(Point.getCountOfPoints());
 	}
 }
 

@@ -251,6 +251,18 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
     }
 
     @Override
+    public WrapperIRExpression visit(ExternalFunctionDeclaration statement) {
+        return null;
+    }
+
+    @Override
+    public WrapperIRExpression visit(ExternalCall expression) {
+        MethodSymbol methodSymbol = (MethodSymbol) expression.getSymbol();
+
+        return new Ex(new CALL(new NAME(Label.newLabel(methodSymbol.getIdentifier().getName())), args(expression.getArgumentsList().getExpressionList())));
+    }
+
+    @Override
     public WrapperIRExpression visit(CharLiteral expression) {
         return new Ex(new CONST(expression.getValue()));
     }

@@ -48,6 +48,7 @@ public class Lexer {
         mReservedTokens.put("super", createToken(TokenType.SUPER));
         mReservedTokens.put("this", createToken(TokenType.THIS));
         mReservedTokens.put("constructor", createToken(TokenType.CONSTRUCTOR));
+        mReservedTokens.put("external", createToken(TokenType.EXTERNAL));
     }
 
     public void initState(String text, String fileName) {
@@ -101,13 +102,13 @@ public class Lexer {
                 } else {
                     return createToken(TokenType.DIV);
                 }
-            } else if (isCurrentCharLetter()) { // Find identifiers
+            } else if ((isCurrentCharLetter()) || (mCurrentChar == '_')) { // Find identifiers
                 StringBuilder lexeme = new StringBuilder();
                 lexeme.append(mCurrentChar);
 
                 moveToNextChar();
 
-                while (isCurrentCharLetterOrDigit()) {
+                while ((isCurrentCharLetterOrDigit()) || (mCurrentChar == '_')) {
                     lexeme.append(mCurrentChar);
                     moveToNextChar();
                 }
@@ -185,6 +186,8 @@ public class Lexer {
                 return createToken(TokenType.DOT);
             } else if (isCurrentChar(',')) {
                 return createToken(TokenType.COMMA);
+            } else if (isCurrentChar('@')) {
+                return createToken(TokenType.AT);
             } else if (isCurrentChar('=')) {
                 moveToNextChar();
 
@@ -278,22 +281,48 @@ public class Lexer {
 
                     moveToNextChar();
 
-                    ch.append(mCurrentChar);
+                    if ((mCurrentChar == '\'') ||
+                            (mCurrentChar == '\"') ||
+                            (mCurrentChar == '\\') ||
+                            (mCurrentChar == 'n') ||
+                            (mCurrentChar == 'r') ||
+                            (mCurrentChar == 't') ||
+                            (mCurrentChar == 'b') ||
+                            (mCurrentChar == '0')) {
 
-                    String newChar = ch.toString();
+                        char newChar;
+                        switch (mCurrentChar) {
+                            case '\'':
+                            case '\"':
+                            case '\\': {
+                                newChar = mCurrentChar;
+                            } break;
 
-                    if ((newChar.equals("\\'")) ||
-                            (newChar.equals("\\\"")) ||
-                            (newChar.equals("\\\\")) ||
-                            (newChar.equals("\\n")) ||
-                            (newChar.equals("\\r")) ||
-                            (newChar.equals("\\t")) ||
-                            (newChar.equals("\\b")) ||
-                            (newChar.equals("\\0"))) {
+                            case 'n': {
+                                newChar = '\n';
+                            } break;
+
+                            case 'r': {
+                                newChar = '\r';
+                            } break;
+
+                            case 't': {
+                                newChar = '\t';
+                            } break;
+
+                            case 'b': {
+                                newChar = '\b';
+                            } break;
+
+                            default: {
+                                newChar = '\0';
+                            } break;
+                        }
+
                         moveToNextChar();
 
                         if (isCurrentChar('\'')) {
-                            return createToken(TokenType.CHAR_LITERAL, ch.toString());
+                            return createToken(TokenType.CHAR_LITERAL, String.valueOf(newChar));
                         }
                     }
                 } else {
