@@ -35,6 +35,12 @@ public class Constants {
 
     public static final String VTABLE = "%s_vtable";
 
+    // Function to return size of an array.
+    public static final String FUNCTION_ARRAY_LEN = "array_len";
+
+    // Function to return size of a string.
+    public static final String FUNCTION_STR_LEN = "str_len";
+
     private Constants() {
     }
 

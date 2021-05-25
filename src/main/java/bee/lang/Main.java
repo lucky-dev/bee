@@ -147,7 +147,7 @@ public class Main {
                 ValidatingLoopsException |
                 SelectColorException |
                 CodegenException e) {
-            System.out.println(e.toString());
+            System.out.println(e);
         } catch (IOException e) {
             e.printStackTrace();
         }

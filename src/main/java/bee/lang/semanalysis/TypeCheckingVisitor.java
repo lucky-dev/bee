@@ -308,16 +308,16 @@ public class TypeCheckingVisitor implements TypeVisitor {
 
         while (iterator.hasNext()) {
             BaseType baseType = ((VariableDefinition) iterator.next()).getType();
-            if ((!baseType.isInt()) && (!baseType.isBool()) && (!baseType.isChar())) {
-                printErrorMessage(statement.getIdentifier().getToken(), "The external method '" + statement.getIdentifier().getName() + "' must have formal parameters of type 'int', 'bool' or 'char'.");
+            if ((baseType.isClass()) || ((baseType.isArray()) && (((ArrayType) baseType).getType().isClass()))) {
+                printErrorMessage(statement.getIdentifier().getToken(), "The external method '" + statement.getIdentifier().getName() + "' must not have objects and an arrays of objects as formal parameters.");
                 return Type.Error;
             }
         }
 
         BaseType returnType = statement.getReturnType();
 
-        if ((!returnType.isInt()) && (!returnType.isBool()) && (!returnType.isChar() && (!returnType.isVoid()))) {
-            printErrorMessage(statement.getIdentifier().getToken(), "The external method '" + statement.getIdentifier().getName() + "' must return value of type 'int', 'bool' or 'char'.");
+        if ((returnType.isClass()) || ((returnType.isArray()) && (((ArrayType) returnType).getType().isClass()))) {
+            printErrorMessage(statement.getIdentifier().getToken(), "The external method '" + statement.getIdentifier().getName() + "' must not have objects and an arrays of objects as a return value.");
             return Type.Error;
         }
 

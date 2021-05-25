@@ -819,7 +819,23 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
             mListFragments.add(new StringFragment(lblNewStr.getName(), str));
         }
 
-        return new Ex(mCurrentFrame.externalCall(Constants.FUNCTION_CONVERT_STRING_TO_ARRAY, args(new CONST(str.length() * mFrame.getWordSize()), new NAME(lblNewStr))));
+        Temp newArray = new Temp();
+        Temp dstAddress = new Temp();
+
+        return new Ex(
+                new ESEQ(
+                        new SEQ(new MOVE(new TEMP(newArray), mCurrentFrame.externalCall(Constants.FUNCTION_ALLOC_INIT_RAW_MEMORY, args(new CONST((str.length() + 1) * mCurrentFrame.getWordSize())))),
+                                new SEQ(
+                                        new MOVE(new MEM(new TEMP(newArray)), new CONST(str.length())),
+                                        new SEQ(
+                                                new MOVE(new TEMP(dstAddress), new BINOP(TypeBinOp.PLUS, new TEMP(newArray), new CONST(mFrame.getWordSize()))),
+                                                new EXP(mCurrentFrame.externalCall(Constants.FUNCTION_CONVERT_STRING_TO_ARRAY, args(new TEMP(dstAddress), new NAME(lblNewStr), new CONST(str.length()))))
+                                        )
+                                )
+                        ),
+                        new TEMP(newArray)
+                )
+        );
     }
 
     @Override
