@@ -1,0 +1,23 @@
+plugins {
+	id 'java'
+}
+
+version '1.0'
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	compile 'junit:junit:4.13'
+}
+
+jar {
+	manifest {
+		attributes('Main-Class': 'bee.lang.Main')
+	}
+
+	from configurations.compile.collect {
+		it.isDirectory() ? it : zipTree(it)
+	}
+}

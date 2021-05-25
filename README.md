@@ -4,9 +4,6 @@ Bee is an object-oriented programming language with static type checking. Now th
 ## How to build
 1. `git clone https://github.com/lucky-dev/bee.git`
 2. `cd bee`
-3. `mkdir build`
-4. `javac -classpath src src/bee/lang/Main.java -d build`
-5. `cd build`
-6. `jar cf bee.jar .`
-7. `java -cp bee.jar bee.lang.Main -s ../examples/test_1.bee -d ../examples/test_1.s`
-8. Run SPIM simulator and load a file `*.s` (e.g. `test_1.s`).
+3. `./gradlew jar`
+4. `java -jar build/libs/Bee-1.0.jar -s examples/test_1.bee -d examples/test_1.s`
+8. Run SPIM simulator, load a file `*.s` (e.g. `test_1.s`) and run a program.
