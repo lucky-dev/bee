@@ -351,7 +351,7 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
 
         WrapperIRExpression tree = statement.getBody().visit(this);
 
-        IRStatement callsOtherConstructors;
+        IRStatement callsOtherConstructors = null;
 
         if (statement.getSuperConstructorArgumentsList() != null) {
             IRStatement callInitFields = new EXP(new CALL(new NAME(Label.newLabel(String.format(Constants.FUNCTION_INIT_FIELDS, mCurrentClassSymbol.getIdentifier().getName()))), args(mFirstArgInFunction.exp(new TEMP(mCurrentFrame.getFP())))));
@@ -367,14 +367,16 @@ public class NewIRTreeVisitor implements IRTreeVisitor {
                 callsOtherConstructors = callInitFields;
             }
         } else {
-            String otherConstructorId = ((MethodSymbol) statement.getOtherConstructorSymbol()).getMethodId();
+            if (statement.getOtherConstructorArgumentsList() != null) {
+                String otherConstructorId = ((MethodSymbol) statement.getOtherConstructorSymbol()).getMethodId();
 
-            callsOtherConstructors = new EXP(new CALL(new NAME(Label.newLabel(otherConstructorId)), args(mFirstArgInFunction.exp(new TEMP(mCurrentFrame.getFP())), statement.getOtherConstructorArgumentsList().getExpressionList())));
+                callsOtherConstructors = new EXP(new CALL(new NAME(Label.newLabel(otherConstructorId)), args(mFirstArgInFunction.exp(new TEMP(mCurrentFrame.getFP())), statement.getOtherConstructorArgumentsList().getExpressionList())));
+            }
         }
 
         tree = new Nx(
                 new SEQ(
-                        callsOtherConstructors,
+                        callsOtherConstructors != null ? callsOtherConstructors : new EXP(new CONST(0)),
                         tree != null ? tree.unNx() : new EXP(new CONST(0))
                 )
         );

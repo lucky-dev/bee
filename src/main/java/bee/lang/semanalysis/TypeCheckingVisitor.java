@@ -1159,13 +1159,23 @@ public class TypeCheckingVisitor implements TypeVisitor {
     }
 
     private void checkOtherConstructors(ConstructorDefinition statement) {
-        // Bee does not have the root class for all classes by default. If the keyword `super` uses in a constructor of a class without a base class then need to ignore this case and do not find constructors in a base class.
-        if ((statement.getSuperConstructorArgumentsList() != null) && (mCurrentClassSymbol.getBaseClassIdentifier() == null)) {
-            if (!statement.getSuperConstructorArgumentsList().getExpressionList().isEmpty()) {
-                printErrorMessage(statement.getToken(), "A class without a base class can not call super-constructor with arguments.");
-            }
+        // Bee does not have the root class for all classes by default. If the keyword `super` uses in a constructor of a class without a base class then need to show an error.
+        if (mCurrentClassSymbol.getBaseClassIdentifier() == null) {
+            if ((statement.getSuperConstructorArgumentsList() != null)) {
+                printErrorMessage(statement.getToken(), "A class without a base class can not call super-constructor.");
 
-            return;
+                return;
+            } else {
+                if (statement.getOtherConstructorArgumentsList() == null) {
+                    return;
+                }
+            }
+        } else {
+            if ((statement.getSuperConstructorArgumentsList() == null) && (statement.getOtherConstructorArgumentsList() == null)) {
+                printErrorMessage(statement.getToken(), "A class with a base class must call a super-constructor or delegate a call to other constructors in the same class.");
+
+                return;
+            }
         }
 
         MethodType expectedMethodType = new MethodType();

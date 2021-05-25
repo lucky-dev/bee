@@ -4,7 +4,7 @@ class Main {
     external print_char(var c: char);
 
     // Every class must have at least one constructor. All constructors are public by default.
-	constructor() : super() {
+	constructor() {
 	}
 
     // Entry point. An app must have only one entry point (the method 'main').
@@ -32,7 +32,7 @@ class Point {
     var y: int = 0;
 
     // Every class must have at least one constructor. All constructors are public by default.
-    constructor(var x: int, const y: int) : super() {
+    constructor(var x: int, const y: int) {
         // Need to use the name of the class to get access to the static fields.
         Point.countOfPoints = Point.countOfPoints + 1;
 	    this.x = x;

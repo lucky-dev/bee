@@ -3,7 +3,7 @@ class Main {
     external print_int(var n: int);
 
     // Every class must have at least one constructor.
-	constructor() : super() {
+	constructor() {
 	}
 
     // Entry point. An app must have only one entry point (the method 'main').
@@ -24,7 +24,7 @@ class Fib {
         Every class must have at least one constructor.
         All constructors are public by default. The modifier 'public' can be omitted.
     */
-	public constructor() : super() {
+	public constructor() {
 	}
 
     // All static and non-static methods are public by default. The modifier 'public' can be omitted.

@@ -4,7 +4,7 @@ class Main {
     external print_char(var c: char);
 
     // Every class must have at least one constructor. All constructors are public by default.
-	constructor() : super() {
+	constructor() {
 	}
 
     // Entry point. An app must have only one entry point (the method 'main').
@@ -33,7 +33,7 @@ class Vehicle {
     var id: int;
 
     // Every class must have at least one constructor. All constructors are public by default.
-    constructor() : super() {
+    constructor() {
         id = 0;
     }
 
