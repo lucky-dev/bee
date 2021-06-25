@@ -24,7 +24,7 @@ public class Lexer {
         mReservedTokens.put("if", createToken(TokenType.IF));
         mReservedTokens.put("else", createToken(TokenType.ELSE));
         mReservedTokens.put("while", createToken(TokenType.WHILE));
-        mReservedTokens.put("for", createToken(TokenType.FOR));
+//        mReservedTokens.put("for", createToken(TokenType.FOR));
         mReservedTokens.put("do", createToken(TokenType.DO));
         mReservedTokens.put("break", createToken(TokenType.BREAK));
         mReservedTokens.put("continue", createToken(TokenType.CONTINUE));

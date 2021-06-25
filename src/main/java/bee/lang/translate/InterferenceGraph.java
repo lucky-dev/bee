@@ -1,7 +1,7 @@
 package bee.lang.translate;
 
 import bee.lang.ir.Temp;
-import javafx.util.Pair;
+import bee.lang.util.Pair;
 
 import java.util.LinkedList;
 

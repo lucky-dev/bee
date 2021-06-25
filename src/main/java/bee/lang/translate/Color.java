@@ -3,7 +3,7 @@ package bee.lang.translate;
 import bee.lang.assembly.TempMap;
 import bee.lang.exceptions.SelectColorException;
 import bee.lang.ir.Temp;
-import javafx.util.Pair;
+import bee.lang.util.Pair;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -71,7 +71,7 @@ public class Color implements TempMap {
             mInterferenceGraph.addNode(node);
 
             for (Pair<Node, Node> edge : savedEdges.get(node)) {
-                mInterferenceGraph.addEdge(edge.getKey(), edge.getValue());
+                mInterferenceGraph.addEdge(edge.getFirst(), edge.getSecond());
             }
 
             HashSet<Temp> colorsOfNeighbors = new HashSet<>();
